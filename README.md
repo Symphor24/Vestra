@@ -2,14 +2,14 @@
 
 Analyse des matchs de football, des mouvements de cotes et des combinés expliqués. Mobile-first, Next.js 16.
 
-> **État : prototype (phases 1–2).** Toutes les données sont fictives et l'interface l'indique en permanence.
+> **État : phases 1–3.** Interface prototype sur données fictives (signalées en permanence) ; schéma de base prêt, pas encore branché. Voir [docs/database.md](docs/database.md).
 
 ## Lancer
 
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # calculs de cotes, générateur, ticket
+npm test           # calculs de cotes, générateur, ticket, migrations + RLS (PGlite, sans Docker)
 npm run typecheck
 npm run lint
 npm run build
@@ -25,7 +25,8 @@ src/lib/combos/          generate.ts (générateur déterministe), slip.ts (cont
 src/lib/data.ts          point d'entrée unique des données (démo aujourd'hui, Supabase ensuite), cache serveur
 src/lib/demo/data.ts     données fictives
 src/lib/store.ts         favoris, ticket, préférences : stockage local du navigateur
-tests/unit/
+supabase/migrations/     schéma versionné ; supabase/seed.sql : compétitions
+tests/unit/ tests/integration/
 ```
 
 ## Décisions
@@ -49,7 +50,7 @@ tests/unit/
 
 ## Reste à faire
 
-- **Phase 3** : migrations Supabase (tables de la spec §10, index, contraintes d'unicité, RLS), rétention des snapshots.
+- **Phase 3** ✅ schéma, contraintes, RLS, rétention, testés. Reste : créer le projet Supabase et appliquer la migration ([docs/database.md](docs/database.md)), décider des sauvegardes.
 - **Phase 4** : `scripts/ingest-odds.ts` (validation Zod, plafond `ODDS_API_MONTHLY_CREDIT_CAP` lu depuis les en-têtes `x-requests-remaining`, retries avec backoff, idempotence) et un workflow GitHub Actions planifié.
 - **Phase 5–6** : générer les tickets côté script, remplacer `DATA_SOURCE = "demo"` dans `src/lib/data.ts`, résultats via football-data.org, suivi des performances (§13).
 - **Phase 7** : déploiement et documentation de maintenance.
