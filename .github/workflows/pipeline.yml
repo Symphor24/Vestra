@@ -1,0 +1,47 @@
+name: Odds pipeline
+
+on:
+  schedule:
+    # UTC. 3 runs × 5 leagues × 1 credit ≈ 465 credits in a 31-day month; the script enforces the cap.
+    - cron: "15 7,13,18 * * *"
+  workflow_dispatch: # manual run: also costs ~5 credits
+
+# Never two runs at once: they would race on the same rows and double-spend quota.
+concurrency:
+  group: odds-pipeline
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  # Shared src/lib modules are ESM in a typeless package: silence Node's reparse notice.
+  NODE_OPTIONS: --disable-warning=MODULE_TYPELESS_PACKAGE_JSON
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --omit=dev --ignore-scripts
+
+      - name: Ingest odds
+        run: node scripts/ingest-odds.ts
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          ODDS_API_MONTHLY_CREDIT_CAP: ${{ vars.ODDS_API_MONTHLY_CREDIT_CAP || '470' }}
+
+      # Run even if one league failed to ingest: the others still deserve fresh analyses.
+      - name: Analyse matches
+        if: ${{ !cancelled() }}
+        run: node scripts/analyze-matches.ts
+
+      - name: Generate combos
+        if: ${{ !cancelled() }}
+        run: node scripts/generate-combos.ts

@@ -3,6 +3,7 @@ import {
   dropPercent,
   impliedProbability,
   marketMargin,
+  median,
   normalizedProbabilities,
   relativeChange,
   selectionSignal,
@@ -63,5 +64,27 @@ describe("selectionSignal", () => {
   it("ignores invalid points", () => {
     const s = selectionSignal([{ observedAt: at(5), odds: 0 }, { observedAt: at(2), odds: 2 }], now);
     expect(s.observations).toBe(1);
+  });
+});
+
+describe("freshness with confirmation", () => {
+  it("treats an unchanged but recently confirmed price as fresh", () => {
+    const hist = [{ observedAt: at(40), odds: 2.2 }, { observedAt: at(20), odds: 2 }];
+    expect(selectionSignal(hist, now).stale).toBe(true);
+    const s = selectionSignal(hist, now, at(1));
+    expect(s.stale).toBe(false);
+    expect(s.checkedAt).toBe(at(1));
+  });
+
+  it("ignores a confirmation older than the price itself", () => {
+    expect(selectionSignal([{ observedAt: at(2), odds: 2 }], now, at(30)).checkedAt).toBe(at(2));
+  });
+});
+
+describe("median", () => {
+  it("handles odd, even and empty inputs", () => {
+    expect(median([3, 1, 2])).toBe(2);
+    expect(median([4, 1, 2, 3])).toBe(2.5);
+    expect(median([])).toBeNull();
   });
 });

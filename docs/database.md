@@ -1,6 +1,6 @@
 # Base de données (Supabase PostgreSQL)
 
-Migration : `supabase/migrations/20261024120000_initial_schema.sql` · Données initiales : `supabase/seed.sql` · Tests : `tests/integration/db.test.ts`
+Migrations : `supabase/migrations/` (schéma initial, puis qualité d'analyse) · Données initiales : `supabase/seed.sql` · Tests : `tests/integration/db.test.ts`
 
 ## Installer
 
@@ -24,9 +24,9 @@ Ensuite, remplir `.env.local` à partir de `.env.example`. Les scripts se connec
 |---|---|---|
 | `competitions` | 5 ligues du lancement ; `is_enabled` les masque sans les supprimer | seed |
 | `teams` | équipes ; `odds_api_name` = nom exact envoyé par The Odds API, `external_id` = id football-data.org | ingestion |
-| `matches` | rencontres ; `reference_bookmaker` = bookmaker sur lequel tous les mouvements affichés sont mesurés ; scores pour l'évaluation future | ingestion |
+| `matches` | rencontres ; `reference_bookmaker` = bookmaker sur lequel tous les mouvements affichés sont mesurés, `reference_seen_at` = dernière synchro où il proposait le marché ; scores pour l'évaluation future | ingestion |
 | `odds_snapshots` | une ligne par prix observé, jamais modifiée | ingestion |
-| `matches_analysis` | dernier état calculé par sélection ; `opening_odds`, `model_probability`, `confidence_score` restent `null` | analyse |
+| `matches_analysis` | dernier état calculé par sélection, avec cote médiane du marché et statut de qualité ; `opening_odds`, `model_probability`, `confidence_score` restent `null` | analyse |
 | `tickets`, `ticket_selections` | combinés générés, avec la cote et l'heure d'observation au moment de la génération | générateur |
 | `user_favorites` | favoris des comptes, seulement si Supabase Auth est activé | navigateur |
 | `sync_runs` | journal des tâches : statut, erreur, crédits consommés et restants | scripts |

@@ -9,7 +9,10 @@
     "lint": "eslint",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "ingest": "node --env-file-if-exists=.env.local scripts/ingest-odds.ts"
+    "ingest": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/ingest-odds.ts",
+    "analyze": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/analyze-matches.ts",
+    "combos": "node --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/generate-combos.ts",
+    "pipeline": "npm run ingest && npm run analyze && npm run combos"
   },
   "dependencies": {
     "lucide-react": "^1.61.0",

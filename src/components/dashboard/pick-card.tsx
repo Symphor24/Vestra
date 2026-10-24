@@ -36,7 +36,7 @@ export function PickCard({ pick, now }: { pick: Candidate; now: string }) {
       </div>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <Freshness iso={pick.observedAt} ageHours={ageHours(pick.observedAt, new Date(now))} />
+        <Freshness iso={pick.checkedAt} ageHours={ageHours(pick.checkedAt, new Date(now))} />
         {pick.marketProbability !== null && (
           <span className="text-xs text-muted">Proba. implicite {fmtPct(pick.marketProbability * 100, 0)}</span>
         )}

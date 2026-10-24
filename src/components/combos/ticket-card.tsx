@@ -79,7 +79,7 @@ export function TicketCard({ ticket, stale, defaultOpen = false }: { ticket: Tic
         </ol>
         {open && (
           <p className="mt-4 rounded-[14px] bg-white/[0.06] p-3 text-xs leading-relaxed text-hero-muted">
-            {MARKET_LABEL}. {RISK_NOTE[ticket.category]} Les corrélations entre matchs différents ne sont pas évaluées. Méthodologie v{ticket.methodologyVersion}.
+            {MARKET_LABEL}. {RISK_NOTE[ticket.category]} Aucune équipe n’apparaît deux fois ; les autres corrélations ne sont pas évaluées. Méthodologie v{ticket.methodologyVersion}.
           </p>
         )}
         <button

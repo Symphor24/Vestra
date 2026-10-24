@@ -65,6 +65,10 @@ async function saveEvent(db: Db, competitionId: number, e: OddsEvent, now: Date)
     )
   ).rows;
 
+  await db.query(
+    "update public.matches set reference_seen_at = $2 where id = $1 and reference_bookmaker = any($3::text[])",
+    [matchId, now.toISOString(), [...new Set(rows.map((r) => r.bookmaker))]],
+  );
   if (rows.length === 0) return 0;
   const inserted = await db.query(
     `insert into public.odds_snapshots (match_id, bookmaker, market_key, selection_key, odds_value, observed_at)

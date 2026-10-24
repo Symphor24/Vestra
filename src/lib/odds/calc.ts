@@ -1,4 +1,5 @@
-import type { OddsPoint } from "@/lib/types";
+// Relative .ts imports: this module is shared with the Node scripts (no path aliases there).
+import type { OddsPoint } from "../types.ts";
 
 /** Odds older than this are flagged as stale. Sync runs ~3×/day, so 12 h means "missed at least one sync". */
 export const STALE_AFTER_HOURS = 12;
@@ -49,23 +50,39 @@ export interface SelectionSignal {
   observations: number;
   changePct: number | null;
   dropPct: number | null;
+  /** Latest moment the price is known to be valid: its last change, or a later sync that confirmed it. */
+  checkedAt: string | null;
   ageHours: number | null;
   stale: boolean;
 }
 
-export function selectionSignal(history: OddsPoint[], now: Date): SelectionSignal {
+/**
+ * Providers timestamp a price when it last *changed*; an unchanged price confirmed by a recent sync
+ * is still fresh, hence `confirmedAt`.
+ */
+export function selectionSignal(history: OddsPoint[], now: Date, confirmedAt?: string | null): SelectionSignal {
   const valid = history.filter((p) => isValidOdds(p.odds));
   const first = valid[0] ?? null;
   const current = valid.at(-1) ?? null;
   const comparable = valid.length >= 2 && first !== null && current !== null;
-  const age = current ? ageHours(current.observedAt, now) : null;
+  const checkedAt =
+    current && confirmedAt && Date.parse(confirmedAt) > Date.parse(current.observedAt) ? confirmedAt : (current?.observedAt ?? null);
+  const age = checkedAt ? ageHours(checkedAt, now) : null;
   return {
     first,
     current,
     observations: valid.length,
     changePct: comparable ? relativeChange(first.odds, current.odds) : null,
     dropPct: comparable ? dropPercent(first.odds, current.odds) : null,
+    checkedAt,
     ageHours: age,
     stale: age === null || age > STALE_AFTER_HOURS,
   };
+}
+
+export function median(xs: number[]): number | null {
+  if (xs.length === 0) return null;
+  const s = [...xs].sort((a, b) => a - b);
+  const mid = s.length >> 1;
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }

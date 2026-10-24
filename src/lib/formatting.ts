@@ -1,4 +1,4 @@
-import type { Match, Outcome, TicketCategory } from "@/lib/types";
+import type { Match, Outcome, TicketCategory } from "./types.ts";
 
 export const matchLabel = (m: Match) => `${m.home.name} – ${m.away.name}`;
 

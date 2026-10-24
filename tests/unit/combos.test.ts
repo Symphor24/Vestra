@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildLegs, eligibleCandidates, generateTickets, type Candidate } from "@/lib/combos/generate";
 import { reviewSlip, ticketText } from "@/lib/combos/slip";
 import { buildDemoMatches } from "@/lib/demo/data";
-import type { Leg } from "@/lib/types";
+import type { Leg, Match } from "@/lib/types";
 
 const NOW = Date.parse("2026-10-24T12:00:00Z");
 const now = new Date(NOW);
@@ -76,5 +76,46 @@ describe("reviewSlip", () => {
 
   it("produces a readable ticket text", () => {
     expect(ticketText([leg("ars-che", "home", 1.85)], 1.85)).toContain("@ 1.85");
+  });
+});
+
+describe("quality filters (§11.4)", () => {
+  const ars = byId.get("ars-che")!; // home: 2.10 → 1.85, −11.9 %
+
+  it("excludes a reference price far from the market median", () => {
+    const off: Match = { ...ars, consensus: { home: 2.1 } }; // 1.85 is 11.9 % below the median
+    const ok: Match = { ...ars, consensus: { home: 1.9 } };
+    expect(eligibleCandidates([off], now)).toHaveLength(0);
+    expect(eligibleCandidates([ok], now)).toHaveLength(1);
+  });
+
+  it("excludes implausibly large drops", () => {
+    const crash: Match = { ...ars, h2h: { ...ars.h2h, home: [{ ...ars.h2h.home[0], odds: 4 }, ars.h2h.home.at(-1)!] } };
+    expect(eligibleCandidates([crash], now)).toHaveLength(0);
+  });
+
+  it("uses the last confirmation for freshness", () => {
+    const age = (p: { observedAt: string; odds: number }) => ({ ...p, observedAt: new Date(Date.parse(p.observedAt) - 20 * 3_600_000).toISOString() });
+    const stale: Match = { ...ars, h2h: { home: ars.h2h.home.map(age), draw: ars.h2h.draw.map(age), away: ars.h2h.away.map(age) } };
+    expect(eligibleCandidates([stale], now)).toHaveLength(0);
+    expect(eligibleCandidates([{ ...stale, confirmedAt: now.toISOString() }], now)).toHaveLength(1);
+  });
+
+  it("never combines two matches of the same team", () => {
+    const c = eligibleCandidates(matches, now);
+    const clone = (id: string, from: Candidate): Candidate => ({ ...from, match: { ...from.match, id, away: { ...from.match.away, id: "other" } } });
+    // Second Arsenal match: same home team, different fixture.
+    const ars2 = clone("ars-2", c.find((x) => x.match.id === "ars-che")!);
+    const legs = buildLegs([c.find((x) => x.match.id === "ars-che")!, ars2, ...c], "intermediate")!;
+    expect(legs.map((l) => l.match.id)).not.toContain("ars-2");
+  });
+
+  it("flags shared-team legs in a user slip and withholds the probability", () => {
+    const ars2: Match = { ...ars, id: "ars-2", away: { id: "x", name: "X", shortName: "X" } };
+    const map = new Map([...byId, ["ars-2", ars2]]);
+    const leg = (matchId: string): Leg => ({ matchId, outcome: "home", odds: 1.85, observedAt: now.toISOString(), label: "", matchLabel: "" });
+    const r = reviewSlip([leg("ars-che"), leg("ars-2")], map, now);
+    expect([...r.correlated]).toEqual([0, 1]);
+    expect(r.probabilityIfIndependent).toBeNull();
   });
 });

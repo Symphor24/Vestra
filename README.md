@@ -2,7 +2,7 @@
 
 Analyse des matchs de football, des mouvements de cotes et des combinés expliqués. Mobile-first, Next.js 16.
 
-> **État : phases 1–4.** Interface prototype sur données fictives (signalées en permanence). Schéma de base et ingestion des cotes prêts et testés, en attente des clés : voir [docs/database.md](docs/database.md) et [docs/ingestion.md](docs/ingestion.md).
+> **État : phases 1–5.** Interface prototype sur données fictives (signalées en permanence). Base, ingestion, analyse et génération des combinés prêtes et testées, en attente des clés : voir [docs/database.md](docs/database.md) et [docs/ingestion.md](docs/ingestion.md).
 
 ## Lancer
 
@@ -13,7 +13,7 @@ npm test           # calculs de cotes, générateur, ticket, migrations + RLS (P
 npm run typecheck
 npm run lint
 npm run build
-npm run ingest     # une synchro des cotes (nécessite .env.local)
+npm run pipeline   # ingestion + analyse + combinés (nécessite .env.local)
 ```
 
 ## Structure
@@ -21,14 +21,14 @@ npm run ingest     # une synchro des cotes (nécessite .env.local)
 ```
 src/app/                 pages : / matches match/[id] combos combos/builder favorites profile about
 src/components/          ui/ layout/ dashboard/ matches/ odds/ combos/ charts/ favorites/ profile/
-src/lib/odds/calc.ts     variation, baisse, probabilité implicite, marge, normalisation, fraîcheur
+src/lib/odds/calc.ts     (partagé avec scripts/, d'où les imports relatifs en .ts) variation, baisse, probabilité implicite, marge, normalisation, fraîcheur
 src/lib/combos/          generate.ts (générateur déterministe), slip.ts (contrôle du ticket utilisateur)
 src/lib/data.ts          point d'entrée unique des données (démo aujourd'hui, Supabase ensuite), cache serveur
 src/lib/demo/data.ts     données fictives
 src/lib/store.ts         favoris, ticket, préférences : stockage local du navigateur
 supabase/migrations/     schéma versionné ; supabase/seed.sql : compétitions
-scripts/                 ingest-odds.ts + lib/ (env Zod, client HTTP avec reprises, client The Odds API, ingestion)
-.github/workflows/       ingest-odds.yml (3×/jour), backup.yml (hebdomadaire, chiffré)
+scripts/                 ingest-odds.ts, analyze-matches.ts, generate-combos.ts + lib/
+.github/workflows/       pipeline.yml (3×/jour), backup.yml (hebdomadaire, chiffré)
 tests/unit/ tests/integration/
 ```
 
@@ -55,6 +55,7 @@ tests/unit/ tests/integration/
 
 - **Phase 3** ✅ schéma, contraintes, RLS, rétention, testés. Reste : créer le projet Supabase et appliquer la migration ([docs/database.md](docs/database.md)), décider des sauvegardes.
 - **Phase 4** ✅ ingestion, plafond de crédits, reprises, journal, tâches planifiées, sauvegardes. Reste : clés, secrets GitHub, premier passage réel ([docs/ingestion.md](docs/ingestion.md)).
-- **Phase 5–6** : générer les tickets côté script, remplacer `DATA_SOURCE = "demo"` dans `src/lib/data.ts`, résultats via football-data.org, suivi des performances (§13).
+- **Phase 5** ✅ analyse et statuts de qualité, filtres §11.4 (fraîcheur confirmée, écart au marché, variation aberrante), corrélation « même équipe », cycle de vie des tickets. Voir [docs/ingestion.md](docs/ingestion.md).
+- **Phase 6** : brancher l'interface sur la base (remplacer `DATA_SOURCE = "demo"` dans `src/lib/data.ts`), résultats via football-data.org, suivi des performances (§13).
 - **Phase 7** : déploiement et documentation de maintenance.
 - Tests de navigation de bout en bout (Playwright) ; aujourd'hui seulement vérifiés à la main.

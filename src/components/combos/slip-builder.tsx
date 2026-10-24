@@ -37,6 +37,7 @@ export function SlipBuilder({ matches, now }: { matches: Match[]; now: string })
       <ol className="space-y-2.5" aria-label="Sélections du ticket">
         {legs.map((l, i) => {
           const conflict = r.conflicts.has(l.matchId);
+          const correlated = r.correlated.has(i);
           const moved = r.moved.get(i);
           return (
             <li key={`${l.matchId}-${l.outcome}`} className={`${card} animate-rise flex items-center gap-3 p-4 ${conflict ? "border-danger/60" : ""}`}>
@@ -44,6 +45,7 @@ export function SlipBuilder({ matches, now }: { matches: Match[]; now: string })
                 <Link href={`/match/${l.matchId}`} className="block truncate text-sm text-muted hover:text-text">{l.matchLabel}</Link>
                 <p className="truncate font-semibold">{l.label}</p>
                 {conflict && <p className="mt-1 flex items-center gap-1 text-xs text-danger"><TriangleAlert className="size-3.5" aria-hidden="true" /> Incompatible : deux issues du même match</p>}
+                {correlated && <p className="mt-1 flex items-center gap-1 text-xs text-warn"><TriangleAlert className="size-3.5" aria-hidden="true" /> Même équipe qu&apos;une autre sélection : résultats liés</p>}
                 {r.stale.has(i) && <p className="mt-1 flex items-center gap-1 text-xs text-warn"><TriangleAlert className="size-3.5" aria-hidden="true" /> Cote ancienne ou match plus disponible</p>}
                 {moved !== undefined && (
                   <p className="mt-1 text-xs text-info tabular-nums">Cote actuelle {fmtOdds(moved)} (ajoutée à {fmtOdds(l.odds)})</p>
@@ -84,12 +86,14 @@ export function SlipBuilder({ matches, now }: { matches: Match[]; now: string })
               <span className="font-semibold text-hero-text tabular-nums">{fmtPct(r.probabilityIfIndependent * 100, r.probabilityIfIndependent < 0.01 ? 2 : 1)}</span>
             </>
           ) : (
-            "Probabilité indicative indisponible : il faut au moins deux sélections compatibles avec un marché complet."
+            r.correlated.size
+              ? "Probabilité indicative indisponible : des sélections partagent une équipe, l'hypothèse d'indépendance ne tient pas."
+              : "Probabilité indicative indisponible : il faut au moins deux sélections compatibles avec un marché complet."
           )}
         </p>
         <p className="mt-3 flex gap-2 text-xs leading-relaxed text-hero-muted">
           <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-          Les corrélations entre matchs différents ne sont pas évaluées. Le produit des cotes suppose l&apos;indépendance.
+          Seule la présence d&apos;une même équipe est détectée ; les autres corrélations entre matchs ne sont pas évaluées. Le produit des cotes suppose l&apos;indépendance.
         </p>
 
         {r.moved.size > 0 && (

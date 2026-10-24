@@ -58,7 +58,7 @@ async function Content() {
               <p className="mt-2 text-sm leading-relaxed text-muted">{ABOUT[c]}</p>
             </div>
             {t ? (
-              <TicketCard ticket={t} stale={t.legs.some((l) => ageHours(l.observedAt, new Date(now)) > STALE_AFTER_HOURS)} defaultOpen />
+              <TicketCard ticket={t} stale={ageHours(t.generatedAt, new Date(now)) > STALE_AFTER_HOURS} defaultOpen />
             ) : (
               <EmptyState icon={Layers} title="Aucun combiné dans cette catégorie pour l'instant.">
                 Les sélections admissibles ne permettent pas d&apos;atteindre cet objectif sans ajouter des matchs artificiellement.

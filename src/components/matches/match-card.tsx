@@ -9,8 +9,8 @@ import { FollowMatch } from "@/components/odds/slip-buttons";
 const STATUS = { scheduled: null, live: "En direct", finished: "Terminé" } as const;
 
 export function MatchCard({ match, now }: { match: Match; now: string }) {
-  const signals = OUTCOMES.map((o) => selectionSignal(match.h2h[o], new Date(now)));
-  const latest = signals.find((s) => s.current)?.current;
+  const signals = OUTCOMES.map((o) => selectionSignal(match.h2h[o], new Date(now), match.confirmedAt));
+  const latest = signals.find((s) => s.checkedAt);
   return (
     <article className={`${card} relative p-4 transition-colors duration-150 hover:border-text/20`}>
       <div className="mb-3 flex items-center justify-between gap-2 text-xs text-muted">
@@ -49,7 +49,7 @@ export function MatchCard({ match, now }: { match: Match; now: string }) {
 
       {latest && match.status === "scheduled" && (
         <p className="mt-3">
-          <Freshness iso={latest.observedAt} ageHours={signals[0].ageHours} />
+          <Freshness iso={latest.checkedAt!} ageHours={latest.ageHours} />
         </p>
       )}
       {/* Whole card is the link; the follow button sits above it. */}

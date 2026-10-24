@@ -1,12 +1,12 @@
 // Usage: node scripts/ingest-odds.ts   (Node ≥ 22.18 runs TypeScript directly)
 import { connect } from "./lib/db.ts";
-import { loadEnv } from "./lib/env.ts";
+import { IngestEnv, loadEnv } from "./lib/env.ts";
 import { ingestOdds } from "./lib/ingest.ts";
 import { oddsApi } from "./lib/odds-api.ts";
 
 let env;
 try {
-  env = loadEnv();
+  env = loadEnv(IngestEnv);
 } catch (e) {
   console.error((e as Error).message);
   process.exit(1);

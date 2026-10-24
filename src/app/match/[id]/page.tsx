@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { ChevronLeft, Info } from "lucide-react";
 import { getMatch } from "@/lib/data";
-import { RULES } from "@/lib/combos/generate";
+import { consensusDeviationPct, RULES } from "@/lib/combos/generate";
 import { marketMargin, normalizedProbabilities, selectionSignal } from "@/lib/odds/calc";
 import { fmtOdds, fmtPct, MARKET_LABEL, matchLabel, outcomeCode, outcomeLabel } from "@/lib/formatting";
 import { OUTCOMES } from "@/lib/types";
@@ -33,11 +33,11 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
   if (!m) notFound();
 
   const nowD = new Date(now);
-  const signals = OUTCOMES.map((o) => selectionSignal(m.h2h[o], nowD));
+  const signals = OUTCOMES.map((o) => selectionSignal(m.h2h[o], nowD, m.confirmedAt));
   const current = signals.map((s) => s.current?.odds ?? NaN);
   const margin = marketMargin(current);
   const probs = normalizedProbabilities(current);
-  const latest = signals.find((s) => s.current)!.current!;
+  const latest = signals.find((s) => s.checkedAt);
   const open = m.status === "scheduled";
 
   return (
@@ -127,7 +127,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
             })}
           </ul>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
-            <Freshness iso={latest.observedAt} ageHours={signals[0].ageHours} />
+            {latest && <Freshness iso={latest.checkedAt!} ageHours={latest.ageHours} />}
             {margin !== null && <span className="tabular-nums">Marge du bookmaker {fmtPct(margin * 100)}</span>}
           </div>
           <p className="mt-3 flex gap-2 text-xs leading-relaxed text-muted">
@@ -151,7 +151,9 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
             {OUTCOMES.map((o, i) => {
               const s = signals[i];
               if (s.dropPct === null) return <li key={o}>{outcomeLabel(m, o)} : historique insuffisant pour mesurer un mouvement.</li>;
-              const passes = s.dropPct >= RULES.minDropPct && !s.stale && open;
+              const dev = s.current ? consensusDeviationPct(m, o, s.current.odds) : null;
+              const offMarket = dev !== null && dev > RULES.maxConsensusDeviationPct;
+              const passes = s.dropPct >= RULES.minDropPct && s.dropPct <= RULES.maxDropPct && !s.stale && !offMarket && open;
               return (
                 <li key={o}>
                   {outcomeLabel(m, o)} : {s.dropPct > 0 ? `baisse de ${fmtPct(s.dropPct)}` : `hausse de ${fmtPct(-s.dropPct)}`} sur {s.observations} observations.{" "}
@@ -159,6 +161,10 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
                     ? `Au-dessus du seuil de ${RULES.minDropPct} % : admissible pour les combinés.`
                     : s.stale
                       ? "Données trop anciennes pour être utilisées."
+                      : offMarket
+                        ? `Écart de ${fmtPct(dev!)} avec la cote médiane des bookmakers : non retenue.`
+                        : s.dropPct > RULES.maxDropPct
+                          ? "Variation trop forte pour être fiable : non retenue."
                       : `Sous le seuil de ${RULES.minDropPct} % : non retenue.`}
                 </li>
               );

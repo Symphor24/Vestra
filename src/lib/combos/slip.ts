@@ -1,12 +1,14 @@
-import { normalizedProbabilities, selectionSignal, totalOdds } from "@/lib/odds/calc";
-import { fmtOdds, fmtTotal, MARKET_LABEL } from "@/lib/formatting";
-import { OUTCOMES, type Leg, type Match } from "@/lib/types";
+import { normalizedProbabilities, selectionSignal, totalOdds } from "../odds/calc.ts";
+import { fmtOdds, fmtTotal, MARKET_LABEL } from "../formatting.ts";
+import { OUTCOMES, type Leg, type Match } from "../types.ts";
 
 export interface SlipReview {
   count: number;
   total: number | null;
   /** Match ids that appear in more than one leg: those outcomes are mutually exclusive. */
   conflicts: Set<string>;
+  /** Legs from different matches that share a team: their outcomes are correlated. */
+  correlated: Set<number>;
   /** Legs whose latest price is stale or whose match is no longer known/open. */
   stale: Set<number>;
   /** Index → latest known odds, for legs whose price moved since it was added. */
@@ -30,18 +32,29 @@ export function reviewSlip(legs: Leg[], matches: Map<string, Match>, now: Date):
       probs.push(null);
       return;
     }
-    const s = selectionSignal(m.h2h[leg.outcome], now);
+    const s = selectionSignal(m.h2h[leg.outcome], now, m.confirmedAt);
     if (s.stale) stale.add(i);
     if (s.current && s.current.odds !== leg.odds) moved.set(i, s.current.odds);
     const market = normalizedProbabilities(OUTCOMES.map((o) => m.h2h[o].at(-1)?.odds ?? NaN));
     probs.push(market?.[OUTCOMES.indexOf(leg.outcome)] ?? null);
   });
 
-  const canEstimate = legs.length >= 2 && conflicts.size === 0 && probs.every((p) => p !== null);
+  const correlated = new Set<number>();
+  legs.forEach((a, i) =>
+    legs.forEach((b, j) => {
+      const ma = matches.get(a.matchId);
+      const mb = matches.get(b.matchId);
+      if (i === j || !ma || !mb || ma.id === mb.id) return;
+      if ([ma.home.id, ma.away.id].some((t) => t === mb.home.id || t === mb.away.id)) correlated.add(i);
+    }),
+  );
+
+  const canEstimate = legs.length >= 2 && conflicts.size === 0 && correlated.size === 0 && probs.every((p) => p !== null);
   return {
     count: legs.length,
     total: totalOdds(legs.map((l) => l.odds)),
     conflicts,
+    correlated,
     stale,
     moved,
     probabilityIfIndependent: canEstimate ? probs.reduce<number>((a, p) => a * p!, 1) : null,
