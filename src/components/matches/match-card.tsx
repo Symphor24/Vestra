@@ -23,10 +23,11 @@ export function MatchCard({ match, now }: { match: Match; now: string }) {
 
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1 space-y-2">
-          {[match.home, match.away].map((t) => (
+          {([[match.home, match.homeScore], [match.away, match.awayScore]] as const).map(([t, score]) => (
             <p key={t.id} className="flex items-center gap-2.5 font-medium">
               <TeamBadge team={t} size="sm" />
-              <span className="truncate">{t.name}</span>
+              <span className="flex-1 truncate">{t.name}</span>
+              {match.status === "finished" && score != null && <span className="text-lg font-semibold tabular-nums">{score}</span>}
             </p>
           ))}
         </div>

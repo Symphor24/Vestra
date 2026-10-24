@@ -1,14 +1,15 @@
 # Pipeline des cotes et sauvegardes
 
-Trois fois par jour, le workflow `pipeline.yml` enchaîne trois scripts :
+Trois fois par jour, le workflow `pipeline.yml` enchaîne quatre scripts :
 
 | Étape | Script | Écrit dans |
 |---|---|---|
-| 1. Ingestion | `scripts/ingest-odds.ts` | `teams`, `matches`, `odds_snapshots` |
-| 2. Analyse | `scripts/analyze-matches.ts` | `matches_analysis` |
-| 3. Combinés | `scripts/generate-combos.ts` | `tickets`, `ticket_selections` |
+| 1. Résultats | `scripts/ingest-results.ts` | `matches` (statut, score), `teams` (ids, noms courts) |
+| 2. Cotes | `scripts/ingest-odds.ts` | `teams`, `matches`, `odds_snapshots` |
+| 3. Analyse | `scripts/analyze-matches.ts` | `matches_analysis` |
+| 4. Combinés | `scripts/generate-combos.ts` | `tickets`, `ticket_selections` |
 
-Les étapes 2 et 3 tournent même si une ligue a échoué à l'étape 1. Chaque étape est journalisée dans `sync_runs`.
+L'étape 1 est sautée si `FOOTBALL_DATA_API_KEY` n'est pas défini. Chaque étape tourne même si la précédente a échoué. Chaque étape est journalisée dans `sync_runs`.
 
 ## Ce que fait une synchro (`scripts/ingest-odds.ts`)
 
@@ -23,6 +24,19 @@ Les étapes 2 et 3 tournent même si une ligue a échoué à l'étape 1. Chaque 
 Une compétition en erreur n'empêche pas les autres d'être traitées, mais la synchro est marquée `error` et le script sort en code 1. GitHub signale alors l'échec par e-mail.
 
 **Appels réseau** : délai de 15 s, 3 tentatives maximum avec backoff exponentiel, uniquement sur les erreurs passagères (408, 429, 5xx, réseau). Une erreur 401 ou 422 n'est jamais retentée, car chaque appel coûte du quota. La clé API n'apparaît jamais dans les messages d'erreur.
+
+## Résultats (`scripts/ingest-results.ts`, football-data.org)
+
+Pour les matchs commencés depuis 2 h à 7 jours et toujours « à venir », le script fait un appel par ligue, au plus 5 par synchro. L'offre gratuite autorise 10 appels par minute.
+
+**Rapprocher les deux fournisseurs** : les noms diffèrent (« Inter Milan » contre « FC Internazionale Milano »). Le script cherche donc la rencontre, pas l'équipe. Il retient :
+1. un coup d'envoi à ±15 min avec au moins une équipe reconnue du bon côté ;
+2. sinon, les deux équipes reconnues dans une fenêtre de 36 h ;
+3. sinon, une seule candidate dans cette fenêtre (cas des reports).
+
+En cas d'ambiguïté, le match est **signalé, jamais deviné** (`unmatched` dans la sortie). Chaque rapprochement enregistre l'identifiant football-data des deux équipes, ce qui rend les suivants exacts, et leur nom court (« Wolves »).
+
+**Statuts** : `FINISHED` donne le score final. `POSTPONED` ou `CANCELLED` retire le match du programme. Un match reporté revient automatiquement quand The Odds API annonce une nouvelle date. Entre le coup d'envoi et le résultat, le match n'est pas affiché, faute de source fiable pour le direct.
 
 ## Analyse (`scripts/analyze-matches.ts`)
 
@@ -56,7 +70,8 @@ cp .env.example .env.local   # remplir DATABASE_URL et ODDS_API_KEY
 npm run ingest               # coûte environ 5 crédits
 npm run analyze
 npm run combos
-npm run pipeline             # les trois à la suite
+npm run results              # nécessite FOOTBALL_DATA_API_KEY
+npm run pipeline             # les quatre à la suite
 ```
 
 ## Mettre en place sur GitHub
@@ -68,6 +83,7 @@ npm run pipeline             # les trois à la suite
    |---|---|
    | `DATABASE_URL` | Supabase > Connect > **Session pooler** (pas « Direct connection », qui n'est accessible qu'en IPv6, alors que GitHub n'a pas d'IPv6) |
    | `ODDS_API_KEY` | clé The Odds API |
+   | `FOOTBALL_DATA_API_KEY` | clé football-data.org (gratuite, sur inscription) |
    | `BACKUP_PASSPHRASE` | phrase longue et aléatoire, **à conserver ailleurs** : sans elle, les sauvegardes sont illisibles |
 
 3. Optionnel, dans l'onglet *Variables* : `ODDS_API_MONTHLY_CREDIT_CAP` pour changer le plafond.

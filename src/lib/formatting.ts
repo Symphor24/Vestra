@@ -1,6 +1,6 @@
 import type { Match, Outcome, TicketCategory } from "./types.ts";
 
-export const matchLabel = (m: Match) => `${m.home.name} – ${m.away.name}`;
+export const matchLabel = (m: Pick<Match, "home" | "away">) => `${m.home.name} – ${m.away.name}`;
 
 export function outcomeLabel(m: Pick<Match, "home" | "away">, o: Outcome) {
   if (o === "draw") return "Match nul";
@@ -35,3 +35,12 @@ export function fmtSignedPct(p: number) {
 /** Combined odds can get large: keep 2 decimals below 100, round above. */
 export const fmtTotal = (o: number) =>
   o < 100 ? o.toFixed(2) : Math.round(o).toLocaleString("fr-FR");
+
+const BOOKMAKERS: Record<string, string> = {
+  pinnacle: "Pinnacle",
+  betfair_ex_eu: "Betfair Exchange",
+  unibet_eu: "Unibet",
+  williamhill: "William Hill",
+};
+/** Display name for a provider bookmaker key; unknown keys are shown as sent. */
+export const bookmakerName = (key: string) => BOOKMAKERS[key] ?? key;

@@ -10,6 +10,10 @@ export const IngestEnv = DbEnv.extend({
   ODDS_API_MONTHLY_CREDIT_CAP: z.coerce.number().int().positive().default(470),
 });
 
+export const ResultsEnv = DbEnv.extend({
+  FOOTBALL_DATA_API_KEY: z.string().min(10),
+});
+
 export function loadEnv<S extends z.ZodType>(schema: S): z.infer<S> {
   const r = schema.safeParse(process.env);
   if (!r.success) {

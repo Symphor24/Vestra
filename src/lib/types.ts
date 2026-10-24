@@ -33,6 +33,9 @@ export interface Match {
   bookmaker: string;
   /** Chronological observations of the 1X2 market. */
   h2h: Record<Outcome, OddsPoint[]>;
+  /** Full-time score, once the result is known. */
+  homeScore?: number | null;
+  awayScore?: number | null;
   /** Last sync where the reference bookmaker still offered these prices (live data only). */
   confirmedAt?: string | null;
   /** Median latest price across all bookmakers, to spot an off-market reference price (live data only). */

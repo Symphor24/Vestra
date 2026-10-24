@@ -1,7 +1,8 @@
 import { connect, type Db } from "./db.ts";
+import type { z } from "zod";
 import { DbEnv, loadEnv } from "./env.ts";
 
-type Job = "analyze" | "generate-combos";
+type Job = "analyze" | "generate-combos" | "ingest-results";
 
 /** Logs a job in sync_runs (running → ok | error) around `fn`. */
 export async function withSyncRun<T>(db: Db, job: Job, fn: () => Promise<{ items: number; result: T }>): Promise<T> {
@@ -17,17 +18,21 @@ export async function withSyncRun<T>(db: Db, job: Job, fn: () => Promise<{ items
 }
 
 /** Entry point shared by the DB-only scripts: env check, connection, logging, exit code. */
-export async function main<T>(job: Job, fn: (db: Db, now: Date) => Promise<{ items: number; result: T }>) {
-  let env;
+export async function main<T, S extends typeof DbEnv = typeof DbEnv>(
+  job: Job,
+  fn: (db: Db, now: Date, env: z.infer<S>) => Promise<{ items: number; result: T }>,
+  schema: S = DbEnv as S,
+) {
+  let env: z.infer<S>;
   try {
-    env = loadEnv(DbEnv);
+    env = loadEnv(schema);
   } catch (e) {
     console.error((e as Error).message);
     process.exit(1);
   }
   const db = connect(env.DATABASE_URL);
   try {
-    console.log(JSON.stringify(await withSyncRun(db, job, () => fn(db, new Date())), null, 2));
+    console.log(JSON.stringify(await withSyncRun(db, job, () => fn(db, new Date(), env)), null, 2));
   } catch (e) {
     console.error((e as Error).message);
     process.exitCode = 1;

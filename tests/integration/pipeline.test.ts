@@ -2,41 +2,14 @@ import type { PGlite } from "@electric-sql/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import { analyzeMatches } from "../../scripts/lib/analyze";
 import { generateCombos } from "../../scripts/lib/combos";
-import { ingestOdds } from "../../scripts/lib/ingest";
 import { loadMatches } from "../../scripts/lib/matches";
-import type { FetchOdds, OddsEvent } from "../../scripts/lib/odds-api";
+import type { OddsEvent } from "../../scripts/lib/odds-api";
+import { after, ev, five, ingestAt as ingestAtDb, SHORT, seedTwoSyncs, T0, T1 } from "./fixtures";
 import { freshDb } from "./setup-db";
 
 // Ingestion → analysis → combos, on the real schema, with a fake provider.
-const T0 = new Date("2026-10-24T08:00:00Z");
-const after = (h: number, base = T0) => new Date(base.getTime() + h * 3_600_000);
-
-type P = [number, number, number];
-/** Reference (pinnacle) prices plus two other books; `others` defaults to the same prices. */
-function ev(i: number, ref: P, updated: Date, others: P = ref): OddsEvent {
-  const home = `Home ${i}`;
-  const away = `Away ${i}`;
-  const book = (key: string, [h, d, a]: P) => ({
-    key,
-    title: key,
-    last_update: updated.toISOString(),
-    markets: [{ key: "h2h", last_update: updated.toISOString(), outcomes: [{ name: home, price: h }, { name: "Draw", price: d }, { name: away, price: a }] }],
-  });
-  return {
-    id: `evt-${i}`,
-    sport_key: "soccer_epl",
-    commence_time: after(48 + i).toISOString(),
-    home_team: home,
-    away_team: away,
-    bookmakers: [book("pinnacle", ref), book("unibet_eu", others), book("williamhill", others)],
-  };
-}
 
 let db: PGlite;
-const ingestAt = (when: Date, events: OddsEvent[]) => {
-  const fetchOdds: FetchOdds = async (k) => ({ events: k === "soccer_epl" ? events : [], creditsUsed: 1, creditsRemaining: 300 });
-  return ingestOdds({ db, fetchOdds, cap: 470, now: () => when });
-};
 const quality = async () =>
   (await db.query<{ q: string; n: number }>("select data_quality_status as q, count(*)::int as n from public.matches_analysis group by 1 order by 1")).rows;
 const tickets = async () =>
@@ -45,15 +18,11 @@ const tickets = async () =>
      left join public.ticket_selections s on s.ticket_id = t.id group by t.id order by t.category, t.status`,
   )).rows;
 
-const OPEN: P = [2.0, 3.4, 3.8];
-const SHORT: P = [1.75, 3.6, 4.6]; // home −12.5 %
-const five = (p: P, at: Date) => [1, 2, 3, 4, 5].map((i) => ev(i, p, at));
-const T1 = after(6);
+const ingestAt = (when: Date, events: OddsEvent[]) => ingestAtDb(db, when, events);
 
 beforeEach(async () => {
   db = await freshDb();
-  await ingestAt(T0, five(OPEN, after(-1)));
-  await ingestAt(T1, five(SHORT, after(-0.5, T1)));
+  await seedTwoSyncs(db);
 });
 
 describe("analysis", () => {

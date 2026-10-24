@@ -57,6 +57,9 @@ async function saveEvent(db: Db, competitionId: number, e: OddsEvent, now: Date)
        values ($1, $2, $3, $4, $5, $6, $7)
        on conflict (external_id) do update set
          kickoff_at = excluded.kickoff_at,
+         -- A postponed match that gets a new date is back on the schedule.
+         status = case when public.matches.status = 'postponed' and excluded.kickoff_at <> public.matches.kickoff_at
+                       then 'scheduled' else public.matches.status end,
          last_synced_at = excluded.last_synced_at,
          reference_bookmaker = coalesce(public.matches.reference_bookmaker, excluded.reference_bookmaker)
        returning id`,

@@ -6,7 +6,7 @@ import { ChevronLeft, Info } from "lucide-react";
 import { getMatch } from "@/lib/data";
 import { consensusDeviationPct, RULES } from "@/lib/combos/generate";
 import { marketMargin, normalizedProbabilities, selectionSignal } from "@/lib/odds/calc";
-import { fmtOdds, fmtPct, MARKET_LABEL, matchLabel, outcomeCode, outcomeLabel } from "@/lib/formatting";
+import { bookmakerName, fmtOdds, fmtPct, MARKET_LABEL, matchLabel, outcomeCode, outcomeLabel } from "@/lib/formatting";
 import { OUTCOMES } from "@/lib/types";
 import { card, Freshness, OddsDelta, TeamBadge } from "@/components/ui/bits";
 import { Field } from "@/components/ui/pitch";
@@ -66,7 +66,13 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
               <TeamBadge team={m.home} size="lg" onHero />
               {m.home.name}
             </span>
-            <span className="text-hero-muted" aria-label="contre">–</span>
+            {m.status === "finished" && m.homeScore != null && m.awayScore != null ? (
+              <span className="text-[34px] font-semibold tabular-nums" aria-label={`Score final ${m.homeScore} à ${m.awayScore}`}>
+                {m.homeScore} – {m.awayScore}
+              </span>
+            ) : (
+              <span className="text-hero-muted" aria-label="contre">–</span>
+            )}
             <span className="flex flex-col items-center gap-2">
               <TeamBadge team={m.away} size="lg" onHero />
               {m.away.name}
@@ -84,7 +90,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
         <section className={`${card} p-4 sm:p-5`} aria-labelledby="odds-title">
           <div className="mb-1 flex items-baseline justify-between gap-3">
             <h2 id="odds-title" className="font-semibold">Cotes observées</h2>
-            <span className="text-xs text-muted">{m.bookmaker}</span>
+            <span className="text-xs text-muted">{bookmakerName(m.bookmaker)}</span>
           </div>
           <p className="mb-4 text-xs text-muted">{MARKET_LABEL}. Faits observés, sans interprétation.</p>
           <ul className="grid gap-2 sm:grid-cols-3">

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { ArrowUpRight, Layers, SearchX } from "lucide-react";
+import { ArrowUpRight, Layers, SearchX, TriangleAlert } from "lucide-react";
 import { getDashboard } from "@/lib/data";
 import { ageHours, STALE_AFTER_HOURS } from "@/lib/odds/calc";
 import { PickCard } from "@/components/dashboard/pick-card";
@@ -28,7 +28,10 @@ export default function Home() {
 }
 
 async function Dashboard() {
-  const { now, matches, stats, tickets, picks } = await getDashboard();
+  const { now, matches, stats, tickets, picks, source } = await getDashboard();
+  const syncAge = stats.lastSync ? ageHours(stats.lastSync, new Date(now)) : null;
+  // The pipeline runs ~every 6 h: beyond the stale threshold a run was missed and users must know.
+  const syncLate = source === "live" && (syncAge === null || syncAge > STALE_AFTER_HOURS);
   const next = matches
     .filter((m) => m.status === "scheduled" && m.kickoffAt > now)
     .sort((a, b) => a.kickoffAt.localeCompare(b.kickoffAt))[0];
@@ -44,6 +47,19 @@ async function Dashboard() {
           {stats.analysed} matchs à venir suivis, {picks.length} sélection{picks.length > 1 ? "s" : ""} répond{picks.length > 1 ? "ent" : ""} à nos critères.
         </p>
       </section>
+
+      {syncLate && (
+        <p role="status" className="flex gap-2 rounded-card border border-warn/40 bg-warn/10 p-4 text-sm text-warn">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          {stats.lastSync ? (
+            <span>
+              Les cotes n&apos;ont pas été actualisées depuis <Time iso={stats.lastSync} mode="relative" />. Vérifiez-les chez le bookmaker avant tout usage.
+            </span>
+          ) : (
+            "Aucune donnée n'a encore été synchronisée."
+          )}
+        </p>
+      )}
 
       <section className="grid gap-3 md:grid-cols-[1.15fr_1fr]">
         {next && (

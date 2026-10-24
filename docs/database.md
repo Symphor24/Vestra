@@ -1,6 +1,6 @@
 # Base de données (Supabase PostgreSQL)
 
-Migrations : `supabase/migrations/` (schéma initial, puis qualité d'analyse) · Données initiales : `supabase/seed.sql` · Tests : `tests/integration/db.test.ts`
+Migrations : `supabase/migrations/` (schéma initial, qualité d'analyse, fonctions de lecture de l'application) · Données initiales : `supabase/seed.sql` · Tests : `tests/integration/db.test.ts`
 
 ## Installer
 
@@ -52,6 +52,8 @@ Ensuite, remplir `.env.local` à partir de `.env.example`. Les scripts se connec
 | `anon`, `authenticated` | lire les compétitions actives, équipes, matchs, cotes, analyses, tickets |
 | `authenticated` | lire, ajouter, supprimer **ses propres** favoris |
 | propriétaire de la base via `DATABASE_URL` (scripts, GitHub Actions) | tout. Cette chaîne ne doit **jamais** être exposée au navigateur |
+
+**Lecture par l'application** : `ui_matches(p_now)` et `ui_tickets(p_now)` renvoient en un seul appel ce qu'affichent les écrans : historique du bookmaker de référence, cote médiane, tickets actifs. Elles s'exécutent avec les droits de l'appelant (`security invoker`), donc la RLS s'applique. Elles sont testées en tant que rôle `anon`.
 
 La sécurité tient en deux couches : les privilèges d'écriture par défaut de Supabase sont révoqués, puis les policies filtrent les lignes. `sync_runs` et `prune_old_data()` ne sont accessibles qu'au propriétaire de la base.
 
