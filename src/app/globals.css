@@ -1,0 +1,134 @@
+@import "tailwindcss";
+
+/* Vestra design tokens. Dark is the default; light follows the system unless the user picks a theme. */
+:root {
+  --midnight: #0b1220;
+  --navy: #17243a;
+  --lime: #c8f169;
+  --cloud: #f5f7fa;
+
+  --bg: var(--midnight);
+  --surface: var(--navy);
+  --surface-2: #1f2e48;
+  --line: rgb(255 255 255 / 0.09);
+  --text: #ffffff;
+  --muted: #a3b0c5;
+  --accent: var(--lime);
+  --accent-ink: var(--midnight);
+  --info: #6ea4f8;
+  --warn: #f5b33d;
+  --danger: #f87171;
+  /* The hero card stays navy in both themes, like a printed ticket. */
+  --hero: var(--navy);
+  --hero-text: #ffffff;
+  --hero-muted: #a3b0c5;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: var(--cloud);
+    --surface: #ffffff;
+    --surface-2: #eaeff5;
+    --line: rgb(11 18 32 / 0.09);
+    --text: var(--midnight);
+    --muted: #4a5870;
+    --info: #2563eb;
+    --warn: #a45a06;
+    --danger: #dc2626;
+    color-scheme: light;
+  }
+}
+
+:root[data-theme="light"] {
+  --bg: var(--cloud);
+  --surface: #ffffff;
+  --surface-2: #eaeff5;
+  --line: rgb(11 18 32 / 0.09);
+  --text: var(--midnight);
+  --muted: #4a5870;
+  --info: #2563eb;
+  --warn: #a45a06;
+  --danger: #dc2626;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-info: var(--info);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-hero: var(--hero);
+  --color-hero-text: var(--hero-text);
+  --color-hero-muted: var(--hero-muted);
+  --color-midnight: var(--midnight);
+  --color-lime: var(--lime);
+  --font-sans: var(--font-geist-sans);
+  --radius-card: 20px;
+  --radius-btn: 14px;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* Onboarding is shown until the head script marks the visitor as onboarded: no flash on reload. */
+html[data-onboarded] .onboarding {
+  display: none;
+}
+
+@keyframes pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+.animate-pop {
+  animation: pop 220ms var(--ease-out);
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.animate-rise {
+  animation: rise 220ms var(--ease-out) both;
+}
+
+@keyframes shimmer {
+  to { background-position: -200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 12px;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
