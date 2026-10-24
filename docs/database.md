@@ -16,7 +16,7 @@ npx supabase db push            # applique supabase/migrations/
 
 puis exécuter `seed.sql` dans le SQL Editor (le CLI ne pousse le seed que vers une base locale).
 
-Ensuite, remplir `.env.local` à partir de `.env.example` (URL, clé `anon`, clé `service_role`).
+Ensuite, remplir `.env.local` à partir de `.env.example`. Les scripts se connectent avec `DATABASE_URL` (chaîne « Session pooler »), qui passe outre la RLS : à garder secrète.
 
 ## Tables
 
@@ -51,9 +51,9 @@ Ensuite, remplir `.env.local` à partir de `.env.example` (URL, clé `anon`, cl�
 |---|---|
 | `anon`, `authenticated` | lire les compétitions actives, équipes, matchs, cotes, analyses, tickets |
 | `authenticated` | lire, ajouter, supprimer **ses propres** favoris |
-| `service_role` (scripts, GitHub Actions) | tout. Cette clé ne doit **jamais** être exposée au navigateur |
+| propriétaire de la base via `DATABASE_URL` (scripts, GitHub Actions) | tout. Cette chaîne ne doit **jamais** être exposée au navigateur |
 
-La sécurité tient en deux couches : les privilèges d'écriture par défaut de Supabase sont révoqués, puis les policies filtrent les lignes. `sync_runs` et `prune_old_data()` ne sont accessibles qu'au service role.
+La sécurité tient en deux couches : les privilèges d'écriture par défaut de Supabase sont révoqués, puis les policies filtrent les lignes. `sync_runs` et `prune_old_data()` ne sont accessibles qu'au propriétaire de la base.
 
 **Pour toute nouvelle table** : `enable row level security`, puis les `grant` et policies nécessaires. Supabase donne tous les droits aux rôles API sur les nouvelles tables.
 
@@ -61,7 +61,7 @@ La sécurité tient en deux couches : les privilèges d'écriture par défaut de
 
 Estimation au pire, si tous les prix changent à chaque synchro : 5 ligues × ~10 matchs/semaine × ~15 bookmakers (région `eu`) × 3 issues × 21 synchros = ~47 000 lignes/semaine. À ~200 octets par ligne index compris, cela fait ~10 Mo/semaine, soit ~500 Mo/an **sans nettoyage**.
 
-`prune_old_data(keep_days default 30)` ne garde, 30 jours après le match, que le premier et le dernier prix de chaque sélection. Elle supprime aussi les `sync_runs` de plus de 90 jours. On reste alors à ~50 Mo/an. Elle sera appelée par la tâche planifiée (phase 4).
+`prune_old_data(keep_days default 30)` ne garde, 30 jours après le match, que le premier et le dernier prix de chaque sélection. Elle supprime aussi les `sync_runs` de plus de 90 jours. On reste alors à ~50 Mo/an. Elle est appelée à la fin de chaque synchro.
 
 Si le volume dépasse les prévisions, le levier est de ne stocker qu'une liste courte de bookmakers.
 
@@ -69,4 +69,4 @@ Si le volume dépasse les prévisions, le levier est de ne stocker qu'une liste 
 
 - 500 Mo de base par projet, 2 projets actifs, 5 Go de trafic sortant.
 - **Projet mis en pause après 1 semaine d'inactivité.** Les synchros planifiées (3 par jour) l'évitent.
-- **Aucune sauvegarde automatique.** Les observations de cotes sont impossibles à racheter (l'historique est payant). Solution à 0 € : un `pg_dump` mensuel par GitHub Actions, en artefact ou dans un dépôt privé. À décider.
+- **Aucune sauvegarde automatique.** Compensé par une sauvegarde hebdomadaire chiffrée par GitHub Actions : voir [ingestion.md](ingestion.md#sauvegardes-githubworkflowsbackupyml).

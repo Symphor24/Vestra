@@ -1,0 +1,46 @@
+name: Backup database
+
+# The Supabase free plan has no automatic backups, and collected odds cannot be bought back.
+on:
+  schedule:
+    - cron: "30 3 * * 1" # Mondays 03:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # pg_dump must be at least the server's major version (Supabase: 17 for new projects).
+      - name: Install pg_dump 17
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Dump and encrypt
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BACKUP_PASSPHRASE" ]; then echo "BACKUP_PASSPHRASE manquant" >&2; exit 1; fi
+          f="vestra-$(date -u +%Y-%m-%d).dump"
+          /usr/lib/postgresql/17/bin/pg_dump "$DATABASE_URL" --schema=public --no-owner --no-privileges --format=custom --file="$f"
+          # Artifacts are downloadable by anyone with read access to the repo: never store them in clear.
+          gpg --batch --yes --pinentry-mode loopback --symmetric --cipher-algo AES256 \
+            --passphrase-file <(printf %s "$BACKUP_PASSPHRASE") --output "$f.gpg" "$f"
+          rm "$f"
+          ls -lh "$f.gpg"
+          echo "BACKUP_FILE=$f.gpg" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BACKUP_FILE }}
+          path: ${{ env.BACKUP_FILE }}
+          retention-days: 90 # ~13 weekly backups kept on a rolling basis
+          if-no-files-found: error

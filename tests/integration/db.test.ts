@@ -1,22 +1,6 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { PGlite } from "@electric-sql/pglite";
+import type { PGlite } from "@electric-sql/pglite";
 import { beforeAll, describe, expect, it } from "vitest";
-
-// Runs the real migrations on an in-process Postgres with a minimal stand-in for what Supabase provides.
-const SUPABASE_STUB = `
-  create role anon nologin;
-  create role authenticated nologin;
-  create schema auth;
-  create table auth.users (id uuid primary key);
-  create function auth.uid() returns uuid language sql stable
-    as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-  grant usage on schema auth to anon, authenticated;
-  -- Supabase's default: API roles get every privilege on new public objects; RLS is the real guard.
-  grant usage on schema public to anon, authenticated;
-  alter default privileges in schema public grant all on tables to anon, authenticated;
-  alter default privileges in schema public grant all on sequences to anon, authenticated;
-`;
+import { freshDb, SEED } from "./setup-db";
 
 const A = "11111111-1111-1111-1111-111111111111";
 const B = "22222222-2222-2222-2222-222222222222";
@@ -54,11 +38,7 @@ const snap = (matchId: number, odds: number, observedHours: number) =>
   );
 
 beforeAll(async () => {
-  db = new PGlite();
-  await db.exec(SUPABASE_STUB);
-  const dir = join(process.cwd(), "supabase", "migrations");
-  for (const f of readdirSync(dir).sort()) await db.exec(readFileSync(join(dir, f), "utf8"));
-  await db.exec(readFileSync(join(process.cwd(), "supabase", "seed.sql"), "utf8"));
+  db = await freshDb();
   await db.exec(`
     insert into auth.users (id) values ('${A}'), ('${B}');
     insert into public.teams (name, short_name) values ('Arsenal', 'Arsenal'), ('Chelsea', 'Chelsea');
@@ -67,7 +47,7 @@ beforeAll(async () => {
 
 describe("schema constraints", () => {
   it("seeds the five launch competitions idempotently", async () => {
-    await db.exec(readFileSync(join(process.cwd(), "supabase", "seed.sql"), "utf8"));
+    await db.exec(SEED);
     expect((await db.query("select * from public.competitions")).rows).toHaveLength(5);
   });
 
