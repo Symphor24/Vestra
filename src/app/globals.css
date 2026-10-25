@@ -53,6 +53,21 @@
   color-scheme: light;
 }
 
+/* Dark tokens on one element whatever the theme (match cards stay night blue). */
+.night {
+  --bg: var(--midnight);
+  --surface: var(--navy);
+  --surface-2: #1f2e48;
+  --line: rgb(255 255 255 / 0.09);
+  --text: #ffffff;
+  --muted: #a3b0c5;
+  --info: #6ea4f8;
+  --warn: #f5b33d;
+  --danger: #f87171;
+  color: var(--text);
+  color-scheme: dark;
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
