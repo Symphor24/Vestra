@@ -1,5 +1,5 @@
 import { MARKET_PICKS, type MarketKey } from "../../src/lib/combos/markets.ts";
-import { AF_LEAGUES, type AfFixture, type AfOdds, type ApiFootball } from "./api-football.ts";
+import { AF_LEAGUES, AfApiError, type AfFixture, type AfOdds, type ApiFootball } from "./api-football.ts";
 import type { Db } from "./db.ts";
 import type { FdMatch } from "./football-data.ts";
 import { findFixture, type Pending } from "./results.ts";
@@ -157,7 +157,7 @@ export async function ingestMarkets(db: Db, af: ApiFootball, now: Date, budget =
       out.snapshots += inserted.rows.length;
     } catch (e) {
       out.errors.push(`${m.label} : ${(e as Error).message}`);
-      if ((e as { status?: number }).status === 429) break;
+      if (e instanceof AfApiError) break; // deterministic: the next calls would fail too
     }
   }
   return out;

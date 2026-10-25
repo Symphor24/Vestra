@@ -8,9 +8,8 @@ await main(
   "ingest-markets",
   async (db, now, env) => {
     const result = await ingestMarkets(db, apiFootball(env.API_FOOTBALL_KEY), now);
-    // Provider failures fail the run (visible in GitHub); unmatched fixtures are only reported.
-    if (result.errors.length) throw new Error(result.errors.join("\n"));
-    return { items: result.snapshots, result, credits: result.requests };
+    // Provider failures fail the run (visible in GitHub) but keep the requests spent on record; unmatched fixtures are only reported.
+    return { items: result.snapshots, result, credits: result.requests, error: result.errors.join("\n") || undefined };
   },
   MarketsEnv,
 );

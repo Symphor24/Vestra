@@ -1,6 +1,6 @@
 import type { PGlite } from "@electric-sql/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
-import { apiFootball } from "../../scripts/lib/api-football";
+import { AfApiError, apiFootball } from "../../scripts/lib/api-football";
 import { withSyncRun } from "../../scripts/lib/main";
 import { ingestMarkets, marketRows, pickMarketsBookmaker } from "../../scripts/lib/markets-ingest";
 import { afFixtures, afOdds, BETS, book, fakeAf } from "./af-fixtures";
@@ -59,6 +59,28 @@ describe("ingestMarkets", () => {
     expect((await ingestMarkets(db, af, AFTERNOON, 3)).requests).toBe(0);
   });
 
+  it("records requests used even when the run has errors", async () => {
+    const { af, calls } = fakeAf({ odds: (id) => { if (id === 102) throw new Error("boom"); return afOdds(id); } });
+    await expect(
+      withSyncRun(db, "ingest-markets", async () => {
+        const result = await ingestMarkets(db, af, MORNING);
+        return { items: result.snapshots, result, credits: result.requests, error: result.errors.join("\n") || undefined };
+      }),
+    ).rejects.toThrow("boom");
+    const [run] = (await db.query<{ status: string; credits_used: number }>("select status, credits_used from sync_runs where job = 'ingest-markets'")).rows;
+    expect(run).toEqual({ status: "error", credits_used: 6 });
+    expect(calls.odds).toBe(5);
+    expect((await ingestMarkets(db, fakeAf().af, AFTERNOON, 6)).requests).toBe(0);
+  });
+
+  it("stops the odds loop on an API-level error", async () => {
+    const { af, calls } = fakeAf({ odds: () => { throw new AfApiError(200, "API-Football : plan"); } });
+    const r = await ingestMarkets(db, af, MORNING);
+    expect(calls.odds).toBe(1);
+    expect(r.requests).toBe(2);
+    expect(r.errors).toHaveLength(1);
+  });
+
   it("keeps the bookmaker chosen on the first pass", async () => {
     await ingestMarkets(db, fakeAf({ odds: (id) => afOdds(id, [book("SmallBook", [BETS[1]])]) }).af, MORNING);
     await ingestMarkets(db, fakeAf({ odds: (id) => afOdds(id, [book("SmallBook", [BETS[1]]), book("Bet365")]) }).af, AFTERNOON);
@@ -96,6 +118,13 @@ describe("apiFootball", () => {
   it("turns a rateLimit error in a 200 response into HTTP 429", async () => {
     const af = apiFootball("k".repeat(12), reply({ errors: { rateLimit: "Too many requests" }, response: [] }), 0);
     await expect(af.fixtures("2026-10-26")).rejects.toMatchObject({ status: 429 });
+  });
+
+  it("makes a single HTTP attempt per call", async () => {
+    let n = 0;
+    const f = (async () => (n++, new Response("", { status: 500 }))) as unknown as typeof fetch;
+    await expect(apiFootball("k".repeat(12), f, 0).fixtures("2026-10-26")).rejects.toMatchObject({ status: 500 });
+    expect(n).toBe(1);
   });
 
   it("parses fixtures and returns null when a fixture has no odds", async () => {

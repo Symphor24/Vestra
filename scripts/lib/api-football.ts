@@ -30,6 +30,9 @@ const Odds = z.object({
   })),
 });
 
+/** The API answered 200 with an `errors` payload (rateLimit → status 429): retrying only burns requests. */
+export class AfApiError extends HttpError {}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Free plan: 10 requests/minute, 100/day. The pause keeps us under the per-minute limit. */
@@ -38,13 +41,13 @@ export function apiFootball(key: string, fetchImpl: typeof fetch = fetch, sleepM
   async function get(path: string): Promise<unknown[]> {
     if (!first) await sleep(sleepMs);
     first = false;
-    const res = await getWithRetry(`https://v3.football.api-sports.io${path}`, { headers: { "x-apisports-key": key } }, { fetchImpl });
+    const res = await getWithRetry(`https://v3.football.api-sports.io${path}`, { headers: { "x-apisports-key": key } }, { fetchImpl, attempts: 1 });
     const parsed = Envelope.safeParse(await res.json());
     if (!parsed.success) throw new Error(`Réponse API-Football inattendue pour ${path.split("?")[0]} : ${parsed.error.issues[0]?.message}`);
     const { errors } = parsed.data;
     if (Array.isArray(errors) ? errors.length : Object.keys(errors).length) {
       const msg = `API-Football : ${JSON.stringify(errors)}`;
-      throw !Array.isArray(errors) && "rateLimit" in errors ? new HttpError(429, msg) : new Error(msg);
+      throw new AfApiError(!Array.isArray(errors) && "rateLimit" in errors ? 429 : 200, msg);
     }
     return parsed.data.response;
   }
