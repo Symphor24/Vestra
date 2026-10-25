@@ -2,7 +2,7 @@
 
 Analyse des matchs de football, des mouvements de cotes et des combinés expliqués. Mobile-first, Next.js 16.
 
-> **État : phases 1–6.** L'interface lit Supabase dès que `NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_ANON_KEY` sont définis ; sinon elle affiche des données fictives, signalées sur chaque page. Tout est prêt et testé, en attente des clés : voir [docs/database.md](docs/database.md) et [docs/ingestion.md](docs/ingestion.md).
+> **État : phases 1–6, phase 7 en cours.** L'interface lit Supabase dès que `NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_ANON_KEY` sont définis ; sinon elle affiche des données fictives, signalées sur chaque page. Tout est prêt et testé, en attente des clés : voir [docs/database.md](docs/database.md) et [docs/ingestion.md](docs/ingestion.md).
 
 ## Lancer
 
@@ -59,5 +59,5 @@ tests/unit/ tests/integration/
 - **Phase 5** ✅ analyse et statuts de qualité, filtres §11.4 (fraîcheur confirmée, écart au marché, variation aberrante), corrélation « même équipe », cycle de vie des tickets. Voir [docs/ingestion.md](docs/ingestion.md).
 - **Phase 6** ✅ interface branchée sur Supabase (clé anon, RLS, cache serveur, validation Zod), résultats football-data.org, scores, alerte si les données ne sont plus actualisées. Vérifiée dans le navigateur contre une API Supabase simulée.
 - **Après le lancement** : évaluation des performances (§13). Il faudra régler les tickets une fois tous leurs matchs terminés et publier un historique seulement quand l'échantillon sera suffisant.
-- **Phase 7** : déploiement et documentation de maintenance.
+- **Phase 7** (en cours) : base Supabase créée (migrations + seed appliqués le 25/10/2026), premier pipeline réel réussi, code poussé sur GitHub. Reste : secrets GitHub Actions, hébergement, documentation de maintenance.
 - Tests de navigation de bout en bout (Playwright) ; aujourd'hui seulement vérifiés à la main.

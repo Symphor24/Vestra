@@ -16,7 +16,7 @@ npx supabase db push            # applique supabase/migrations/
 
 puis exécuter `seed.sql` dans le SQL Editor (le CLI ne pousse le seed que vers une base locale).
 
-Ensuite, remplir `.env.local` à partir de `.env.example`. Les scripts se connectent avec `DATABASE_URL` (chaîne « Session pooler »), qui passe outre la RLS : à garder secrète.
+Ensuite, remplir `.env.local` à partir de `.env.example`. Les scripts se connectent avec `DATABASE_URL` (chaîne « Session pooler »), qui passe outre la RLS : à garder secrète. Si le mot de passe contient `/ ? & # @ :`, il doit être encodé (`encodeURIComponent`), sinon la connexion échoue avec `ENOTFOUND postgres.<ref>`. Même valeur encodée pour le secret GitHub.
 
 ## Tables
 
