@@ -86,3 +86,10 @@ export function median(xs: number[]): number | null {
   const mid = s.length >> 1;
   return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
+
+/** Index of the strictly lowest price (the market's favourite); none on a tie or missing price. */
+export function favoriteIndex(odds: (number | undefined)[]): number {
+  if (odds.some((o) => o === undefined)) return -1;
+  const min = Math.min(...(odds as number[]));
+  return odds.filter((o) => o === min).length === 1 ? odds.indexOf(min) : -1;
+}

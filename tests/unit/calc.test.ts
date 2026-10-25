@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   dropPercent,
+  favoriteIndex,
   impliedProbability,
   marketMargin,
   median,
@@ -86,5 +87,13 @@ describe("median", () => {
     expect(median([3, 1, 2])).toBe(2);
     expect(median([4, 1, 2, 3])).toBe(2.5);
     expect(median([])).toBeNull();
+  });
+});
+
+describe("favoriteIndex", () => {
+  it("picks the strictly lowest price", () => expect(favoriteIndex([3.12, 3.31, 2.47])).toBe(2));
+  it("has no favourite on a tie or a missing price", () => {
+    expect(favoriteIndex([2.1, 3.4, 2.1])).toBe(-1);
+    expect(favoriteIndex([2.1, undefined, 3])).toBe(-1);
   });
 });

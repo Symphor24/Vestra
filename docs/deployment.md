@@ -2,7 +2,7 @@
 
 Configuration : `netlify.toml` (build `npm run build`, Node 24). Netlify détecte Next.js et applique son adaptateur tout seul ; ne pas ajouter `@netlify/plugin-nextjs` à la main. Cache Components et PPR sont pris en charge (doc Netlify, vérifiée le 25/10/2026).
 
-**Site** : https://vestra-708.netlify.app · projet Netlify `vestra-708` (compte `jitoua81`), variables `NEXT_PUBLIC_*` déjà définies.
+**Site** : https://vestra-official.netlify.app · projet Netlify `vestra-official` (compte `jitoua81`), variables `NEXT_PUBLIC_*` déjà définies.
 
 ## Mise en ligne (une fois)
 
