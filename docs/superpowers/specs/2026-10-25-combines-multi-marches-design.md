@@ -113,7 +113,7 @@ Justification affichée par sélection (fait observé, pas d'opinion) : marché,
 
 - **Un combiné par palier et par journée de matchs**, tous créés en une seule fois par la génération de 13:15 la veille. Contrainte d'unicité en base : `(match_day, category)`. Une fois créé, un combiné est **figé** : ni modifié, ni invalidé, ni supprimé. Une journée déjà générée n'est jamais regénérée, même si le script est relancé. Un palier vide ce jour-là le reste. *(Choix de Claude : on borne le volume à ≤ 10 combinés par jour, on respecte « ne pas écraser les premiers combinés générés », et on construit chaque journée sur des données complètes plutôt que partielles.)*
 - Nouvelle colonne `tickets.match_day date not null` (pour les nouveaux combinés).
-- Les anciens statuts `invalidated` et `expired` ne sont plus attribués. Les combinés existants gardent leur statut ; ceux en `invalidated` sont affichés dans l'historique avec la mention « ancienne méthode ».
+- Les anciens statuts `invalidated` et `expired` ne sont plus attribués. La table `tickets` de production est vide au 25/10/2026 : il n’y a aucun ancien combiné à reprendre.
 - `tickets.category` devient le palier (`2`, `5`, … `20000`) ; `tickets.featured boolean` marque les « sérieux » ; `tickets.estimated_probability` est renseignée.
 
 ### 5. Règlement et statuts
