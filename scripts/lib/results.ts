@@ -25,7 +25,7 @@ interface Side {
   name: string;
   external_id: string | null;
 }
-interface Pending {
+export interface Pending {
   id: string;
   kickoff: Date;
   code: string;
