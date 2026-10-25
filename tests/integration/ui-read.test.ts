@@ -85,7 +85,7 @@ describe("ui_tickets history", () => {
       select t.id, (select min(id) from public.matches), 'totals_2.5', 'over', 2, now(), 1, case when t.result = 'won' then 'won' end
       from public.tickets t;
     `);
-    const raw = (await asAnon("ui_tickets", T1)) as Array<Record<string, any>>;
+    const raw = (await asAnon("ui_tickets", T1)) as Array<{ category: string; status: string; result: string | null; featured: boolean; legs: Array<Record<string, unknown>> }>;
     expect(raw.map((t) => [t.category, t.status, t.result, t.featured])).toEqual([
       ["10", "active", null, true],
       ["5", "settled", "won", false],
