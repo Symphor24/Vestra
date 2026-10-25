@@ -27,7 +27,7 @@ export default function AboutPage() {
           <p><strong>Cette version est une démonstration : tous les matchs et toutes les cotes sont fictifs.</strong></p>
         )}
         <p>Les cotes proviendront de The Odds API (marché 1N2, bookmakers européens), interrogée environ trois fois par jour. Elles ne sont donc <strong>pas en temps réel</strong>.</p>
-        <p>Le calendrier et les résultats proviendront de football-data.org. Les scores en direct ne sont pas affichés.</p>
+        <p>Le calendrier, les résultats et les scores de la page Direct proviennent de football-data.org. En direct, ils sont actualisés environ chaque minute, avec un léger différé possible ; la minute de jeu n&apos;est pas fournie.</p>
         <p>L&apos;offre gratuite de The Odds API ne fournit pas l&apos;historique des cotes. Vestra enregistre donc ses propres observations depuis son lancement : la première valeur affichée est <strong>la première observation Vestra, pas la cote d&apos;ouverture</strong> du marché.</p>
       </Section>
 

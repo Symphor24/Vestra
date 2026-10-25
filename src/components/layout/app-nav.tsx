@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, House, Layers, Star, UserRound } from "lucide-react";
+import { CalendarDays, House, Layers, Radio, Star, UserRound } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 
 const ITEMS = [
   { href: "/", label: "Accueil", icon: House },
   { href: "/matches", label: "Matchs", icon: CalendarDays },
+  { href: "/live", label: "Direct", icon: Radio },
   { href: "/combos", label: "Combinés", icon: Layers },
   { href: "/favorites", label: "Favoris", icon: Star },
   { href: "/profile", label: "Profil", icon: UserRound },
@@ -29,7 +30,7 @@ export function NavView({ demo, path }: { demo: boolean; path: string }) {
         aria-label="Navigation principale"
         className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 mx-auto max-w-md rounded-[26px] border border-line bg-surface/95 p-1.5 shadow-[0_10px_30px_-12px_rgb(0_0_0/0.45)] backdrop-blur lg:hidden"
       >
-        <ul className="grid grid-cols-5">
+        <ul className="grid grid-cols-6">
           {ITEMS.map(({ href, label, icon: Icon }) => {
             const active = isActive(path, href);
             return (

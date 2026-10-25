@@ -19,7 +19,7 @@ npm run pipeline   # résultats + cotes + analyse + combinés (nécessite .env.l
 ## Structure
 
 ```
-src/app/                 pages : / matches match/[id] combos combos/builder favorites profile about
+src/app/                 pages : / matches live match/[id] combos combos/builder favorites profile about
 src/components/          ui/ layout/ dashboard/ matches/ odds/ combos/ charts/ favorites/ profile/
 src/lib/odds/calc.ts     (partagé avec scripts/, d'où les imports relatifs en .ts) variation, baisse, probabilité implicite, marge, normalisation, fraîcheur
 src/lib/combos/          generate.ts (générateur déterministe), slip.ts (contrôle du ticket utilisateur)
@@ -48,7 +48,7 @@ tests/unit/ tests/integration/
 | Graphique | SVG fait main (une série, un axe) avec tableau des valeurs | évite ~100 ko de Recharts pour 2 à 20 points |
 | Composants | pas de shadcn/Radix pour l'instant | aucune primitive complexe (dialog, popover) n'est nécessaire ; à ajouter quand ce sera le cas |
 | Filtre « type de marché » | non affiché | un seul marché (1N2) au lancement |
-| Statut « en direct » | non affiché | pas de source fiable gratuite |
+| Statut « en direct » | page Direct : scores du jour par football-data.org (offre gratuite), cache 1 min, rafraîchissement auto | un seul appel pour les 5 ligues, bien sous la limite de 10 appels/min ; « populaires » = liste fixe de grands clubs (`src/lib/live.ts`) |
 | Logos d'équipes | initiales | blasons à brancher via football-data.org (vérifier les droits) |
 | Hébergement | Netlify (offre gratuite), `netlify.toml` | Vercel Hobby interdit l'usage commercial ; l'adaptateur Netlify prend en charge Cache Components et PPR |
 
