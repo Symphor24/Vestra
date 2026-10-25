@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { ChevronLeft, Info } from "lucide-react";
 import { getMatch } from "@/lib/data";
 import { consensusDeviationPct, RULES } from "@/lib/combos/generate";
-import { marketMargin, normalizedProbabilities, selectionSignal } from "@/lib/odds/calc";
+import { favoriteIndex, marketMargin, normalizedProbabilities, selectionSignal } from "@/lib/odds/calc";
 import { bookmakerName, fmtOdds, fmtPct, MARKET_LABEL, matchLabel, outcomeCode, outcomeLabel } from "@/lib/formatting";
 import { OUTCOMES } from "@/lib/types";
 import { card, Freshness, OddsDelta, TeamBadge } from "@/components/ui/bits";
@@ -38,6 +38,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
   const margin = marketMargin(current);
   const probs = normalizedProbabilities(current);
   const latest = signals.find((s) => s.checkedAt);
+  const fav = favoriteIndex(signals.map((s) => s.current?.odds));
   const open = m.status === "scheduled";
 
   return (
@@ -87,7 +88,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
 
       {/* Content sheet overlapping the header (reference B detail screen) */}
       <div className="relative -mt-6 space-y-4 rounded-t-card bg-bg px-4 pt-5 sm:px-0">
-        <section className={`${card} p-4 sm:p-5`} aria-labelledby="odds-title">
+        <section className={`${card} night p-4 sm:p-5`} aria-labelledby="odds-title">
           <div className="mb-1 flex items-baseline justify-between gap-3">
             <h2 id="odds-title" className="font-semibold">Cotes observées</h2>
             <span className="text-xs text-muted">{bookmakerName(m.bookmaker)}</span>
@@ -97,11 +98,18 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
             {OUTCOMES.map((o, i) => {
               const s = signals[i];
               return (
-                <li key={o} className="flex items-center gap-3 rounded-[16px] bg-surface-2 p-3 sm:flex-col sm:items-stretch">
+                <li key={o} className="flex items-center gap-3 rounded-[16px] border border-line bg-bg p-3 sm:flex-col sm:items-stretch">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">
-                      <span className="mr-1.5 text-muted">{outcomeCode[o]}</span>
-                      {outcomeLabel(m, o)}
+                    <p className="flex items-center gap-1.5 text-sm font-medium">
+                      <span className={`grid size-5 shrink-0 place-items-center rounded-md text-[11px] font-bold ${i === fav ? "bg-accent text-accent-ink" : "bg-surface-2"}`}>
+                        {outcomeCode[o]}
+                      </span>
+                      <span className="truncate">{outcomeLabel(m, o)}</span>
+                      {i === fav && (
+                        <span title="Cote la plus basse : l'issue que le marché juge la plus probable" className="shrink-0 rounded-full bg-accent px-1.5 py-0.5 text-[11px] font-semibold text-accent-ink">
+                          Favori
+                        </span>
+                      )}
                     </p>
                     <p className="mt-1 flex items-baseline gap-2">
                       <span className="text-2xl font-semibold tabular-nums">{s.current ? fmtOdds(s.current.odds) : "–"}</span>
@@ -142,7 +150,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
           </p>
         </section>
 
-        <section className={`${card} p-4 sm:p-5`} aria-labelledby="hist-title">
+        <section className={`${card} night p-4 sm:p-5`} aria-labelledby="hist-title">
           <h2 id="hist-title" className="font-semibold">Évolution de la cote</h2>
           <p className="mb-4 text-xs text-muted">
             Depuis la première observation Vestra, qui n&apos;est pas la cote d&apos;ouverture du marché.
@@ -181,7 +189,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
           </p>
         </section>
 
-        <section className={`${card} p-4 sm:p-5`} aria-labelledby="stats-title">
+        <section className={`${card} night p-4 sm:p-5`} aria-labelledby="stats-title">
           <h2 id="stats-title" className="font-semibold">Statistiques</h2>
           <p className="mt-1 text-sm text-muted">
             Aucune statistique d&apos;équipe n&apos;est encore connectée. Le classement et la forme récente viendront de football-data.org.

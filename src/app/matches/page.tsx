@@ -11,7 +11,7 @@ export default function MatchesPage() {
     <>
       <h1 className="text-[28px] font-semibold tracking-[-0.03em]">Matchs</h1>
       <p className="mt-1 mb-5 text-sm text-muted">Cotes du marché 1N2, actualisées plusieurs fois par jour.</p>
-      <Suspense fallback={<ListSkeleton />}>
+      <Suspense fallback={<ListSkeleton night />}>
         <Content />
       </Suspense>
     </>

@@ -21,11 +21,11 @@ export function DashboardSkeleton() {
   );
 }
 
-export function ListSkeleton({ rows = 4 }: { rows?: number }) {
+export function ListSkeleton({ rows = 4, night = false }: { rows?: number; night?: boolean }) {
   return (
     <div className="grid gap-3 md:grid-cols-2" aria-busy="true" aria-label="Chargement">
       {Array.from({ length: rows }, (_, i) => (
-        <S key={i} className="h-48 rounded-card" />
+        <S key={i} className={`h-48 rounded-card ${night ? "night" : ""}`} />
       ))}
     </div>
   );
@@ -34,13 +34,13 @@ export function ListSkeleton({ rows = 4 }: { rows?: number }) {
 export function DetailSkeleton() {
   return (
     <div className="space-y-4" aria-busy="true" aria-label="Chargement">
-      <S className="h-64 rounded-card" />
+      <S className="h-64 rounded-card night" />
       <div className="grid grid-cols-3 gap-2">
-        <S className="h-24" />
-        <S className="h-24" />
-        <S className="h-24" />
+        <S className="h-24 night" />
+        <S className="h-24 night" />
+        <S className="h-24 night" />
       </div>
-      <S className="h-56 rounded-card" />
+      <S className="h-56 rounded-card night" />
     </div>
   );
 }

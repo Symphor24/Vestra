@@ -10,7 +10,7 @@ export function PickCard({ pick, now }: { pick: Candidate; now: string }) {
   const { match: m } = pick;
   const label = outcomeLabel(m, pick.outcome);
   return (
-    <article className="flex w-[300px] shrink-0 snap-start flex-col rounded-card border border-line bg-surface p-4 sm:w-auto">
+    <article className="night flex w-[300px] shrink-0 snap-start flex-col rounded-card border border-line bg-surface p-4 sm:w-auto">
       <div className="flex items-center justify-between text-xs text-muted">
         <span>{m.competition.name}</span>
         <Time iso={m.kickoffAt} mode="short" />
@@ -23,7 +23,7 @@ export function PickCard({ pick, now }: { pick: Candidate; now: string }) {
         <h3 className="min-w-0 truncate font-semibold">{matchLabel(m)}</h3>
       </div>
 
-      <div className="mt-4 flex items-end justify-between gap-3 rounded-[16px] bg-surface-2 p-3">
+      <div className="mt-4 flex items-end justify-between gap-3 rounded-[16px] border border-line bg-bg p-3">
         <div className="min-w-0">
           <p className="text-[11px] text-muted">{MARKET_LABEL}</p>
           <p className="truncate font-medium">{label}</p>
