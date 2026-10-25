@@ -1,0 +1,6 @@
+# Netlify applies its Next.js adapter automatically; don't pin @netlify/plugin-nextjs.
+[build]
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "24"
