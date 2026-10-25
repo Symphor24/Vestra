@@ -105,7 +105,7 @@ Pour chaque palier T : trouver l'ensemble de sélections qui
 
 Déterministe (mêmes données → même combiné, départage stable par id de match puis clé de sélection). Doit tourner en moins d'une seconde pour ~60 matchs × ~15 sélections ; une recherche exacte n'est pas exigée (recherche en faisceau ou glouton amélioré accepté), mais le test doit montrer qu'elle trouve l'optimum sur de petits cas vérifiables à la main.
 
-« Sérieux » : choisis **une seule fois**, au moment où la journée est générée, et stockés (`tickets.featured`), jamais recalculés. Parmi les combinés des paliers ~2, ~5, ~10, score = probabilité du combiné × (1 + 0,05 × nombre de sélections dont la cote a baissé entre l'observation de 07:15 et celle de 13:15, chez le même bookmaker). Les 2 meilleurs scores sont mis en avant ; un 3e s'il dépasse 80 % du score du 2e. *(Coefficient 0,05 et seuil 80 % : choix de Claude, à régler à l'usage.)*
+« Sérieux » : choisis **une seule fois**, au moment où la journée est générée, et stockés (`tickets.featured`), jamais recalculés. Parmi les combinés des paliers ~2, ~5, ~10, score = probabilité du combiné × (1 + 0,05 × nombre de sélections dont la cote a baissé entre l'observation de 07:15 et celle de 13:15, chez le même bookmaker). Les 2 meilleurs scores sont mis en avant ; un 3e s’il atteint au moins 80 % du score du 2e. *(Coefficient 0,05 et seuil 80 % : choix de Claude, à régler à l'usage.)*
 
 Justification affichée par sélection (fait observé, pas d'opinion) : marché, cote, probabilité selon le marché, et la baisse le cas échéant.
 
