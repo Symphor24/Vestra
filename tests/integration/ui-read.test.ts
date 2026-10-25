@@ -57,7 +57,7 @@ describe("ui_matches", () => {
 });
 
 describe("ui_tickets", () => {
-  it("returns active tickets with readable legs", async () => {
+  it("returns tickets with readable legs", async () => {
     await generateCombos(db, T1);
     const tickets = parseTickets(await asAnon("ui_tickets", T1));
     expect(tickets.map((t) => [t.category, t.legs.length])).toEqual([
@@ -68,11 +68,31 @@ describe("ui_tickets", () => {
     expect(tickets[1].legs[0].rationale).toContain("2.00 à 1.75");
   });
 
-  it("hides expired and invalidated tickets", async () => {
+  it("keeps 30 days of history, including tickets whose matches have started", async () => {
     await generateCombos(db, T1);
-    expect(await asAnon("ui_tickets", after(49.5))).toEqual([]); // first kickoff passed
-    await db.exec("update public.tickets set status = 'invalidated'");
-    expect(await asAnon("ui_tickets", T1)).toEqual([]);
+    expect(await asAnon("ui_tickets", after(49.5))).toHaveLength(2);
+    expect(await asAnon("ui_tickets", after(24 * 31))).toEqual([]);
+  });
+});
+
+describe("ui_tickets history", () => {
+  it("returns ticket history with results, as a visitor", async () => {
+    await db.exec(`
+      insert into public.tickets (id, title, category, total_odds, status, result, generated_at, methodology_version, match_day, featured)
+      values ('aaaaaaaa-0000-0000-0000-000000000001', 't', '5', 5, 'settled', 'won', '${T1.toISOString()}'::timestamptz - interval '1 day', '0.2.0', '${T1.toISOString().slice(0, 10)}'::date - 1, false),
+             ('aaaaaaaa-0000-0000-0000-000000000002', 't', '10', 10, 'active', null, '${T1.toISOString()}', '0.2.0', '${T1.toISOString().slice(0, 10)}', true);
+      insert into public.ticket_selections (ticket_id, match_id, market_key, selection_key, odds_at_generation, observed_at, position, result)
+      select t.id, (select min(id) from public.matches), 'totals_2.5', 'over', 2, now(), 1, case when t.result = 'won' then 'won' end
+      from public.tickets t;
+    `);
+    const raw = (await asAnon("ui_tickets", T1)) as Array<Record<string, any>>;
+    expect(raw.map((t) => [t.category, t.status, t.result, t.featured])).toEqual([
+      ["10", "active", null, true],
+      ["5", "settled", "won", false],
+    ]);
+    const leg = raw[1].legs[0];
+    expect(leg).toMatchObject({ market: "totals_2.5", outcome: "over", result: "won", matchStatus: "scheduled" });
+    expect(leg).toHaveProperty("footballDataId", null);
   });
 });
 

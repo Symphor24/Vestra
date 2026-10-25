@@ -94,6 +94,34 @@ describe("schema constraints", () => {
     await expect(leg(2, "draw")).rejects.toThrow(/unique/);
   });
 
+  it("stores one ticket per tier and match day", async () => {
+    const insert = () =>
+      db.query(
+        `insert into public.tickets (title, category, total_odds, generated_at, methodology_version, match_day)
+         values ('t', '5', 5, now(), '0.2.0', '2026-10-27')`,
+      );
+    await insert();
+    await expect(insert()).rejects.toThrow(/unique/);
+  });
+
+  it("accepts the new markets and results", async () => {
+    const m = await addMatch("markets", 24);
+    const [{ id }] = (
+      await db.query<{ id: string }>(
+        `insert into public.tickets (title, category, total_odds, generated_at, methodology_version)
+         values ('t', '10', 10, now(), '0.2.0') returning id`,
+      )
+    ).rows;
+    const leg = (result: string) =>
+      db.query(
+        `insert into public.ticket_selections (ticket_id, match_id, market_key, selection_key, odds_at_generation, observed_at, position, result)
+         values ($1, $2, 'totals_2.5', 'over', 2, now(), 1, $3)`,
+        [id, m, result],
+      );
+    await expect(leg("maybe")).rejects.toThrow(/check/);
+    await leg("won");
+  });
+
   it("maintains updated_at", async () => {
     const id = await addMatch("updated", 24);
     await db.exec("select pg_sleep(0.01)");
