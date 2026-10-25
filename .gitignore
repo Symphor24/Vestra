@@ -46,3 +46,6 @@ references/
 
 # Local Netlify folder
 .netlify
+
+# Agent workspaces (plans in progress)
+.superpowers/
