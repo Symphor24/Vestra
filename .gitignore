@@ -43,3 +43,6 @@ next-env.d.ts
 .playwright-mcp/
 !.env.example
 references/
+
+# Local Netlify folder
+.netlify
