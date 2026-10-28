@@ -36,18 +36,19 @@ async function insertDay(db: Db, tickets: TierTicket[], day: string, now: Date):
       rationale: `Cote ${l.odds.toFixed(2)}, probabilité selon le marché ${(l.probability * 100).toFixed(1)} %${l.dropped ? ", cote en baisse" : ""}`,
     })),
   }));
+  // `$1::text::jsonb`, not `$1::jsonb`: the postgres driver JSON-encodes jsonb params a second time.
   const { rows } = await db.query(
     `with t as (
        insert into public.tickets (title, category, total_odds, estimated_probability, featured, match_day, generated_at, expires_at, methodology_version)
        select x.title, x.category, x.total_odds, x.probability, x.featured, $2::date, $3, null, $4
-       from jsonb_to_recordset($1::jsonb) as x(title text, category text, total_odds numeric, probability numeric, featured boolean)
+       from jsonb_to_recordset($1::text::jsonb) as x(title text, category text, total_odds numeric, probability numeric, featured boolean)
        on conflict (match_day, category) where match_day is not null do nothing
        returning id, category
      ), s as (
        insert into public.ticket_selections (ticket_id, match_id, market_key, selection_key, odds_at_generation, observed_at, rationale, position)
        select t.id, l.match_id, l.market, l.pick, l.odds, l.observed_at, l.rationale, l.position
        from t
-       join jsonb_to_recordset($1::jsonb) as x(category text, legs jsonb) on x.category = t.category
+       join jsonb_to_recordset($1::text::jsonb) as x(category text, legs jsonb) on x.category = t.category
        cross join lateral jsonb_to_recordset(x.legs) as l(position int, match_id bigint, market text, pick text, odds numeric, observed_at timestamptz, rationale text)
      )
      select count(*)::int as n from t`,
