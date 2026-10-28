@@ -32,7 +32,7 @@ export async function loadMatches(db: Db, now: Date): Promise<LoadedMatch[]> {
     await db.query<{ match_id: string; bookmaker: string; selection_key: Outcome; odds: number; observed_at: unknown }>(
       `select match_id::text as match_id, bookmaker, selection_key, odds_value::float8 as odds, observed_at
        from public.odds_snapshots
-       where market_key = 'h2h' and match_id = any($1::bigint[])
+       where market_key = 'h2h' and bookmaker not like 'af:%' and match_id = any($1::bigint[])
        order by observed_at, id`,
       [ms.map((m) => m.id)],
     )

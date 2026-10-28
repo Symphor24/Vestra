@@ -48,8 +48,11 @@ async function Content() {
       </div>
     );
   }
-  // matchDay is YYYY-MM-DD, so the string maximum is the most recent day.
-  const day = tickets.reduce((d, t) => ((t.matchDay ?? "") > d ? t.matchDay! : d), "");
+  // matchDay is YYYY-MM-DD: today's tickets if any, else the most recent day (string maximum).
+  const today = now.slice(0, 10);
+  const day = tickets.some((t) => t.matchDay === today)
+    ? today
+    : tickets.reduce((d, t) => ((t.matchDay ?? "") > d ? t.matchDay! : d), "");
   const featured = tickets.filter((t) => t.featured && t.matchDay === day);
   const anyLive = tickets.some((t) => t.live.some((m) => m?.state === "live" || m?.state === "paused"));
   return (
@@ -62,7 +65,7 @@ async function Content() {
           </SectionTitle>
           <div className="grid gap-4 md:grid-cols-2">
             {featured.map((t) => (
-              <TicketCard key={t.id} ticket={t} stale={ageHours(t.generatedAt, new Date(now)) > STALE_AFTER_HOURS} defaultOpen />
+              <TicketCard key={t.id} ticket={t} stale={ageHours(t.generatedAt, new Date(now)) > STALE_AFTER_HOURS} now={now} defaultOpen />
             ))}
           </div>
         </section>

@@ -135,7 +135,7 @@ async function Dashboard() {
         {tickets.length ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {tickets.map((t) => (
-              <TicketCard key={t.id} ticket={t} stale={ageHours(t.generatedAt, new Date(now)) > STALE_AFTER_HOURS} />
+              <TicketCard key={t.id} ticket={t} stale={ageHours(t.generatedAt, new Date(now)) > STALE_AFTER_HOURS} now={now} />
             ))}
           </div>
         ) : (

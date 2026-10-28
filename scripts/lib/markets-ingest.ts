@@ -2,6 +2,7 @@ import { MARKET_PICKS, type MarketKey } from "../../src/lib/combos/markets.ts";
 import { AF_LEAGUES, AfApiError, type AfFixture, type AfOdds, type ApiFootball } from "./api-football.ts";
 import type { Db } from "./db.ts";
 import type { FdMatch } from "./football-data.ts";
+import { HttpError } from "./http.ts";
 import { findFixture, type Pending } from "./results.ts";
 
 interface MarketRow { market: MarketKey; pick: string; odds: number }
@@ -161,7 +162,7 @@ export async function ingestMarkets(db: Db, af: ApiFootball, now: Date, budget =
       out.snapshots += inserted.rows.length;
     } catch (e) {
       out.errors.push(`${m.label} : ${(e as Error).message}`);
-      if (e instanceof AfApiError) break; // deterministic: the next calls would fail too
+      if (e instanceof AfApiError || (e as HttpError).status === 429) break; // the next calls would fail too (plan error, quota)
     }
   }
   return out;

@@ -1,6 +1,7 @@
 import type { PGlite } from "@electric-sql/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import { AfApiError, apiFootball } from "../../scripts/lib/api-football";
+import { HttpError } from "../../scripts/lib/http";
 import { withSyncRun } from "../../scripts/lib/main";
 import { ingestMarkets, marketRows, pickMarketsBookmaker } from "../../scripts/lib/markets-ingest";
 import { afFixtures, afOdds, BETS, book, fakeAf } from "./af-fixtures";
@@ -78,6 +79,13 @@ describe("ingestMarkets", () => {
     const r = await ingestMarkets(db, af, MORNING);
     expect(calls.odds).toBe(1);
     expect(r.requests).toBe(2);
+    expect(r.errors).toHaveLength(1);
+  });
+
+  it("stops the odds loop on a real HTTP 429", async () => {
+    const { af, calls } = fakeAf({ odds: () => { throw new HttpError(429, "HTTP 429 sur /odds"); } });
+    const r = await ingestMarkets(db, af, MORNING);
+    expect(calls.odds).toBe(1);
     expect(r.errors).toHaveLength(1);
   });
 

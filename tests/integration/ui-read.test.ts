@@ -34,6 +34,16 @@ describe("ui_matches", () => {
     expect(ui[0].kickoffAt).toMatch(/Z$/); // normalised timestamps
   });
 
+  it("ignores API-Football h2h rows in consensus and bookmaker count", async () => {
+    await db.exec(`insert into public.odds_snapshots (match_id, bookmaker, market_key, selection_key, odds_value, observed_at)
+      select id, 'af:bet365', 'h2h', 'home', 9, now() from public.matches`);
+    const [ui] = parseMatches(await asAnon("ui_matches", T1));
+    const [script] = await loadMatches(db, T1);
+    expect(ui.consensus?.home).toBe(1.75);
+    expect(script.consensus?.home).toBe(1.75);
+    expect(script.bookmakerCount).toBe(3);
+  });
+
   it("shows finished matches with their score, hides started ones without a result", async () => {
     await db.exec(`update public.matches set status = 'finished', home_score = 2, away_score = 1 where external_id = 'evt-1'`);
     const later = after(49.5); // evt-1 kicked off at +49 h, evt-2 at +50 h

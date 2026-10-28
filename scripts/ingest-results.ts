@@ -9,9 +9,9 @@ await main(
   "ingest-results",
   async (db, now, env) => {
     const result = await ingestResults(db, footballData(env.FOOTBALL_DATA_API_KEY), now);
-    // Provider failures fail the run (visible in GitHub); unmatched fixtures are only reported.
-    if (result.errors.length) throw new Error(result.errors.join("\n"));
+    // Settlement only reads the DB: a failing league must not block it. Provider failures still fail the run (visible in GitHub).
     const settled = await settleTickets(db, now);
+    if (result.errors.length) throw new Error(result.errors.join("\n"));
     return { items: result.finished + result.postponedOrCancelled + settled.legs, result: { ...result, settled } };
   },
   ResultsEnv,

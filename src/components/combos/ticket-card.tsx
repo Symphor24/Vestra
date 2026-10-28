@@ -36,7 +36,7 @@ function StatusPill({ status, leg = false }: { status: LegResult; leg?: boolean 
 const probabilityText = (p: number) => (p < 0.001 ? "< 0,1 %" : fmtPct(p * 100));
 
 /** The ticket is the product's signature object: navy in both themes, total odds set large. */
-export function TicketCard({ ticket, stale, defaultOpen = false }: { ticket: Ticket & Partial<TicketStatus>; stale: boolean; defaultOpen?: boolean }) {
+export function TicketCard({ ticket, stale, now, defaultOpen = false }: { ticket: Ticket & Partial<TicketStatus>; stale: boolean; now: string; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   const [, setSlip] = useSlip();
   const [favs, setFavs] = useFavorites();
@@ -47,7 +47,7 @@ export function TicketCard({ ticket, stale, defaultOpen = false }: { ticket: Tic
   const status = ticket.status ?? ticket.result ?? "pending";
   // The slip builder only prices 1X2, so other markets cannot be adjusted there.
   // Freshness only matters before the first kickoff of a ticket still open.
-  const showFreshness = status === "pending" && ticket.legs.every((l) => Date.parse(l.kickoffAt) > Date.now());
+  const showFreshness = status === "pending" && ticket.legs.every((l) => l.kickoffAt > now);
   const adjustable = ticket.legs.every((l) => l.market === "h2h");
 
   return (

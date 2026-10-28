@@ -67,15 +67,15 @@ Pour chaque issue des matchs à venir, une ligne dans `matches_analysis` (mise �
 Le générateur est celui de l'interface (`src/lib/combos/generate.ts`), appliqué aux données de la base.
 - **Une journée à la fois, figée** : les combinés de demain sont générés à partir de 13:00 UTC la veille (donc au lancement de 13:15), une seule fois par jour. Une fois insérés, ils ne changent plus (`tickets.match_day`).
 - **Un combiné par palier de cote** (5, 10, ... : `tickets.category`), unique par jour et par palier. Un combiné est « à la une » (`featured`) pour les deux meilleurs de la journée (et le troisième s'il est proche).
-- **Sélections admissibles** : marchés de `ingest-markets` (Double chance, Plus/Moins, Les deux équipes marquent) sur le bookmaker de référence du match, statut de qualité `ok`, une seule sélection par match.
+- **Sélections admissibles** : marchés de `ingest-markets` (Double chance, Plus/Moins, Les deux équipes marquent) sur le bookmaker de référence du match, une seule sélection par match.
 - **Corrélation** : deux matchs de la même équipe ne sont jamais combinés. Les autres corrélations ne sont pas évaluées, et l'interface le dit.
 - **Règlement** : `ingest-results.ts` rattache à l'avance les matchs à venir (48 h) à leur identifiant football-data, puis règle chaque sélection (`ticket_selections.result`) et chaque ticket (`tickets.result`, `settled_at`) : `won`, `lost` ou `void`.
-- `estimated_probability` reste vide : le produit des probabilités supposerait l'indépendance, que rien ne garantit.
+- `estimated_probability` : produit des probabilités du marché sans marge, présenté « si les matchs étaient indépendants » (vide en cas de conflit).
 
 ## Lancer à la main
 
 ```bash
-cp .env.example .env.local   # remplir DATABASE_URL et ODDS_API_KEY
+cp .env.example .env.local   # remplir DATABASE_URL, ODDS_API_KEY, FOOTBALL_DATA_API_KEY et API_FOOTBALL_KEY
 npm run ingest               # coûte environ 5 crédits
 npm run analyze
 npm run combos

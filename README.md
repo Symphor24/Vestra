@@ -47,7 +47,7 @@ tests/unit/ tests/integration/
 | Persistance utilisateur | `localStorage` uniquement, pas de compte | pas de données serveur sans auth + RLS (spec §4.6) |
 | Graphique | SVG fait main (une série, un axe) avec tableau des valeurs | évite ~100 ko de Recharts pour 2 à 20 points |
 | Composants | pas de shadcn/Radix pour l'instant | aucune primitive complexe (dialog, popover) n'est nécessaire ; à ajouter quand ce sera le cas |
-| Filtre « type de marché » | non affiché | un seul marché (1N2) au lancement |
+| Filtre « type de marché » | aucun sur Matchs (reste en 1N2) ; les combinés mélangent plusieurs marchés | les marchés supplémentaires ne concernent que les combinés |
 | Marchés | API-Football : Double chance, Plus/Moins 1,5 / 2,5 / 3,5 buts, Les deux équipes marquent ; matchs de demain, 2 observations/jour (07:15 et 13:15 UTC), budget 90 requêtes/jour | ces marchés ne sont pas dans le forfait The Odds API ; un seul bookmaker (`af:`) par match pour garder les mouvements comparables |
 | Combinés | un par palier de cote et par journée, générés la veille à 13 h UTC puis figés ; « à la une », validés épinglés, règlement automatique par jambe | des combinés stables et vérifiables après coup, sans réécrire l'historique |
 | Statut « en direct » | page Direct : scores du jour par football-data.org (offre gratuite), cache 1 min, rafraîchissement auto | un seul appel pour les 5 ligues, bien sous la limite de 10 appels/min ; « populaires » = liste fixe de grands clubs (`src/lib/live.ts`) |

@@ -38,7 +38,7 @@ export function TicketsBrowser({ tickets, now }: { tickets: DisplayTicket[]; now
   const [tier, setTier] = useState<Tier | null>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
   const nowD = new Date(now);
-  const card = (t: DisplayTicket) => <TicketCard key={t.id} ticket={t} stale={ageHours(t.generatedAt, nowD) > STALE_AFTER_HOURS} />;
+  const card = (t: DisplayTicket) => <TicketCard key={t.id} ticket={t} stale={ageHours(t.generatedAt, nowD) > STALE_AFTER_HOURS} now={now} />;
 
   const won = tickets.filter((t) => t.status === "won").sort(newestFirst);
   const shown = tickets.filter((t) => tabOf(t) === tab && (tier === null || t.tier === tier)).sort(newestFirst);
