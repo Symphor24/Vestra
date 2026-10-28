@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { BookmarkPlus, ChevronDown, Copy, SlidersHorizontal } from "lucide-react";
 import { ticketText } from "@/lib/combos/slip";
 import { fmtOdds, fmtPct, fmtTotal, tierLabel } from "@/lib/formatting";
@@ -43,9 +43,11 @@ export function TicketCard({ ticket, stale, defaultOpen = false }: { ticket: Tic
   const router = useRouter();
   const legs = ticketLegs(ticket);
   const saved = favs.tickets.some((t) => t.id === ticket.id);
-  const panelId = `legs-${ticket.id}`;
+  const panelId = useId();
   const status = ticket.status ?? ticket.result ?? "pending";
   // The slip builder only prices 1X2, so other markets cannot be adjusted there.
+  // Freshness only matters before the first kickoff of a ticket still open.
+  const showFreshness = status === "pending" && ticket.legs.every((l) => Date.parse(l.kickoffAt) > Date.now());
   const adjustable = ticket.legs.every((l) => l.market === "h2h");
 
   return (
@@ -73,7 +75,7 @@ export function TicketCard({ ticket, stale, defaultOpen = false }: { ticket: Tic
           <span>
             Générée <Time iso={ticket.generatedAt} mode="relative" />
           </span>
-          <span className={stale ? "text-[#f5b33d]" : ""}>{stale ? "Cotes à revérifier" : "Cotes récentes"}</span>
+          {showFreshness && <span className={stale ? "text-[#f5b33d]" : ""}>{stale ? "Cotes à revérifier" : "Cotes récentes"}</span>}
         </p>
       </div>
 
@@ -87,7 +89,7 @@ export function TicketCard({ ticket, stale, defaultOpen = false }: { ticket: Tic
         <ol id={panelId} className="space-y-2.5">
           {ticket.legs.slice(0, open ? undefined : 3).map((l, i) => {
             const live = ticket.live?.[i];
-            const score = live
+            const score = live && (live.state === "live" || live.state === "paused" || live.state === "finished")
               ? `${live.home.score ?? 0} - ${live.away.score ?? 0}`
               : l.matchState === "finished" && l.homeScore !== null ? `${l.homeScore} - ${l.awayScore}` : null;
             return (

@@ -10,8 +10,8 @@ const leg = (footballDataId: string, market: Ticket["legs"][number]["market"], o
 const ticket = (legs: Ticket["legs"], result: Ticket["result"] = null): Ticket => ({
   id: "t", tier: 5, legs, totalOdds: 4, probability: 0.2, featured: false, result, matchDay: null, generatedAt: "", methodologyVersion: "2",
 });
-const live = (id: string, state: LiveMatch["state"], h: number, a: number): LiveMatch => ({
-  id, league: "PL", kickoffAt: "", state, status: "", updatedAt: "", home: { name: "H", score: h }, away: { name: "A", score: a }, popular: false,
+const live = (id: string, state: LiveMatch["state"], h: number, a: number, status = ""): LiveMatch => ({
+  id, league: "PL", kickoffAt: "", state, status, updatedAt: "", home: { name: "H", score: h }, away: { name: "A", score: a }, popular: false,
 });
 const board = (...m: LiveMatch[]) => new Map(m.map((x) => [x.id, x]));
 
@@ -42,6 +42,12 @@ describe("displayStatus", () => {
   it("is pending without a live match, and void when the match is off", () => {
     const t = ticket([leg("1", "h2h", "home"), { ...leg("", "h2h", "home"), footballDataId: null }]);
     expect(displayStatus(t, board()).legStatus).toEqual(["pending", "pending"]);
-    expect(displayStatus(ticket([leg("1", "h2h", "home")]), board(live("1", "off", 0, 0))).legStatus).toEqual(["void"]);
+    expect(displayStatus(ticket([leg("1", "h2h", "home")]), board(live("1", "off", 0, 0, "POSTPONED"))).legStatus).toEqual(["void"]);
+  });
+
+  it("keeps a leg pending when the match is only suspended", () => {
+    const d = displayStatus(ticket([leg("1", "h2h", "home")]), board(live("1", "off", 0, 0, "SUSPENDED")));
+    expect(d.legStatus).toEqual(["pending"]);
+    expect(d.status).toBe("pending");
   });
 });

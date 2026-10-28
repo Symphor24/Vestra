@@ -65,7 +65,7 @@ export function reviewSlip(legs: Leg[], matches: Map<string, Match>, now: Date):
 
 export function ticketText(legs: Leg[], total: number | null) {
   const lines = legs.map(
-    (l, i) => `${i + 1}. ${l.matchLabel}\n   ${MARKET_LABEL} : ${l.label} @ ${fmtOdds(l.odds)}`,
+    (l, i) => `${i + 1}. ${l.matchLabel}\n   ${l.market === "h2h" ? `${MARKET_LABEL} : ` : ""}${l.label} @ ${fmtOdds(l.odds)}`,
   );
   return [
     "Ticket Vestra",

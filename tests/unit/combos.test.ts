@@ -57,6 +57,13 @@ describe("reviewSlip", () => {
   it("produces a readable ticket text", () => {
     expect(ticketText([leg("ars-che", "home", 1.85)], 1.85)).toContain("@ 1.85");
   });
+
+  it("names the 1N2 market only on 1N2 legs", () => {
+    const totals: Leg = { ...leg("ars-che", "over", 1.9), market: "totals_2.5", label: "Plus de 2,5 buts" };
+    const text = ticketText([totals, leg("nap-mil", "home", 2)], 3.8);
+    expect(text).toContain("   Plus de 2,5 buts @ 1.90");
+    expect(text.match(/Résultat du match/g)).toHaveLength(1);
+  });
 });
 
 describe("quality filters (§11.4)", () => {
