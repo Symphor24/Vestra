@@ -1,6 +1,5 @@
 import type { PGlite } from "@electric-sql/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
-import { generateCombos } from "../../scripts/lib/combos";
 import { loadMatches } from "../../scripts/lib/matches";
 import { parseMatches, parseTickets } from "../../src/lib/supabase/parse";
 import { after, seedTwoSyncs, T1 } from "./fixtures";
@@ -56,21 +55,29 @@ describe("ui_matches", () => {
   });
 });
 
+// A frozen ticket as generate-combos stores it: one h2h leg on the first seeded match.
+const insertTicket = () =>
+  db.exec(`
+    with t as (
+      insert into public.tickets (title, category, total_odds, estimated_probability, generated_at, methodology_version, match_day, featured)
+      values ('Combiné ~2', '2', 1.75, 0.57, '${T1.toISOString()}', '1.0.0', '${T1.toISOString().slice(0, 10)}', true) returning id
+    )
+    insert into public.ticket_selections (ticket_id, match_id, market_key, selection_key, odds_at_generation, observed_at, rationale, position)
+    select t.id, (select min(id) from public.matches), 'h2h', 'home', 1.75, now(), 'Cote 1.75', 1 from t;
+  `);
+
 describe("ui_tickets", () => {
   it("returns tickets with readable legs", async () => {
-    await generateCombos(db, T1);
-    const tickets = parseTickets(await asAnon("ui_tickets", T1));
-    expect(tickets.map((t) => [t.category, t.legs.length])).toEqual([
-      ["intermediate", 5],
-      ["moderate", 2],
-    ]);
-    expect(tickets[1].legs[0]).toMatchObject({ outcome: "home", odds: 1.75, label: "Victoire Home 1", matchLabel: "Home 1 – Away 1" });
-    expect(tickets[1].legs[0].rationale).toContain("2.00 à 1.75");
+    await insertTicket();
+    // Raw rows: parseTickets still validates the old categories until the UI task.
+    const raw = (await asAnon("ui_tickets", T1)) as Array<{ category: string; legs: Array<Record<string, unknown>> }>;
+    expect(raw.map((t) => [t.category, t.legs.length])).toEqual([["2", 1]]);
+    expect(raw[0].legs[0]).toMatchObject({ market: "h2h", outcome: "home", odds: 1.75, rationale: "Cote 1.75" });
   });
 
   it("keeps 30 days of history, including tickets whose matches have started", async () => {
-    await generateCombos(db, T1);
-    expect(await asAnon("ui_tickets", after(49.5))).toHaveLength(2);
+    await insertTicket();
+    expect(await asAnon("ui_tickets", after(49.5))).toHaveLength(1);
     expect(await asAnon("ui_tickets", after(24 * 31))).toEqual([]);
   });
 });

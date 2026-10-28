@@ -1,4 +1,4 @@
-// Usage: node scripts/generate-combos.ts — regenerates tickets, keeps identical ones, invalidates the rest.
+// Usage: node scripts/generate-combos.ts — builds tomorrow's tickets once, from 13:00 UTC; later runs of the same day change nothing.
 import { generateCombos } from "./lib/combos.ts";
 import { main } from "./lib/main.ts";
 

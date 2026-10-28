@@ -1,7 +1,11 @@
 import type { PGlite } from "@electric-sql/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import { analyzeMatches } from "../../scripts/lib/analyze";
+import type { AfOdds } from "../../scripts/lib/api-football";
 import { generateCombos } from "../../scripts/lib/combos";
+import { ingestMarkets } from "../../scripts/lib/markets-ingest";
+import { TIERS } from "../../src/lib/combos/tiers";
+import { afOdds, fakeAf } from "./af-fixtures";
 import { loadMatches } from "../../scripts/lib/matches";
 import type { OddsEvent } from "../../scripts/lib/odds-api";
 import { after, ev, five, ingestAt as ingestAtDb, SHORT, seedTwoSyncs, T0, T1 } from "./fixtures";
@@ -12,11 +16,6 @@ import { freshDb } from "./setup-db";
 let db: PGlite;
 const quality = async () =>
   (await db.query<{ q: string; n: number }>("select data_quality_status as q, count(*)::int as n from public.matches_analysis group by 1 order by 1")).rows;
-const tickets = async () =>
-  (await db.query<{ category: string; status: string; legs: number }>(
-    `select t.category, t.status, count(s.id)::int as legs from public.tickets t
-     left join public.ticket_selections s on s.ticket_id = t.id group by t.id order by t.category, t.status`,
-  )).rows;
 
 const ingestAt = (when: Date, events: OddsEvent[]) => ingestAtDb(db, when, events);
 
@@ -67,40 +66,64 @@ describe("analysis", () => {
 });
 
 describe("combos", () => {
-  it("builds tickets from stored data and never pads an unreachable category", async () => {
-    const r = await generateCombos(db, T1);
-    expect(r).toEqual({ created: 2, kept: 0, invalidated: 0, expired: 0 });
-    // 1.75^2 = 3.06 (moderate), 1.75^5 = 16.4 (intermediate); 100+ is out of reach with 5 legs.
-    expect(await tickets()).toEqual([
-      { category: "intermediate", status: "active", legs: 5 },
-      { category: "moderate", status: "active", legs: 2 },
-    ]);
-    const [t] = (await db.query<Record<string, unknown>>("select estimated_probability, expires_at, methodology_version from public.tickets where category = 'moderate'")).rows;
-    expect(t.estimated_probability).toBeNull();
-    expect(new Date(t.expires_at as string).toISOString()).toBe(after(49).toISOString()); // first kickoff among its legs
-  });
-
-  it("keeps identical tickets, invalidates changed ones", async () => {
-    await generateCombos(db, T1);
-    expect(await generateCombos(db, after(1, T1))).toEqual({ created: 0, kept: 2, invalidated: 0, expired: 0 });
-
-    const T2 = after(2, T1);
-    await ingestAt(T2, five([1.7, 3.7, 4.9], after(-0.2, T2)));
-    expect(await generateCombos(db, T2)).toEqual({ created: 2, kept: 0, invalidated: 2, expired: 0 });
-    expect((await tickets()).map((t) => t.status).sort()).toEqual(["active", "active", "invalidated", "invalidated"]);
-  });
-
-  it("expires active tickets once their first match has started", async () => {
-    await generateCombos(db, T1);
-    const r = await generateCombos(db, after(49.5));
-    expect(r.expired).toBe(2);
-    expect(r.created).toBe(0); // matches 1..5 still open but prices are now stale (> 12 h)
-  });
-
   it("loads matches in the shape the generator and UI share", async () => {
     const [m] = await loadMatches(db, T1);
     expect(m).toMatchObject({ bookmaker: "pinnacle", status: "scheduled", bookmakerCount: 3, consensus: { home: 1.75 } });
     expect(m.h2h.home.map((p) => p.odds)).toEqual([2, 1.75]);
     expect(m.confirmedAt).toBe(T1.toISOString());
+  });
+
+  describe("tomorrow tickets", () => {
+  const MORNING = new Date("2026-10-25T07:30:00Z");
+  const AFTERNOON = new Date("2026-10-25T13:30:00Z");
+  const GENERATE_AT = new Date("2026-10-25T13:45:00Z");
+  // Afternoon: every other match's prices shorten by 5 %, so some legs come out `dropped`.
+  const shorter = (id: number): AfOdds => {
+    const o = afOdds(id);
+    if (id % 2) return { ...o, update: AFTERNOON.toISOString() };
+    const bets = o.bookmakers[0].bets.map((b) => ({ ...b, values: b.values.map((v) => ({ ...v, odd: (Number(v.odd) * 0.95).toFixed(2) })) }));
+    return { ...o, update: AFTERNOON.toISOString(), bookmakers: [{ ...o.bookmakers[0], bets }] };
+  };
+  const ticketRows = async () =>
+    (await db.query<{ category: string; match_day: string; p: number; featured: boolean; generated_at: string }>(
+      "select category, match_day::text as match_day, estimated_probability::float8 as p, featured, generated_at::text from public.tickets order by category",
+    )).rows;
+
+  beforeEach(async () => {
+    await ingestMarkets(db, fakeAf({ odds: (id) => ({ ...afOdds(id), update: MORNING.toISOString() }) }).af, MORNING);
+    await ingestMarkets(db, fakeAf({ odds: shorter }).af, AFTERNOON);
+  });
+
+  it("creates one ticket per reachable tier for tomorrow", async () => {
+    const r = await generateCombos(db, GENERATE_AT);
+    expect(r).toMatchObject({ day: "2026-10-26", skipped: null });
+    expect(r.created).toBeGreaterThanOrEqual(1);
+    const rows = await ticketRows();
+    expect(rows).toHaveLength(r.created);
+    expect(rows.every((t) => t.match_day === "2026-10-26" && (TIERS as readonly number[]).includes(Number(t.category)))).toBe(true);
+    const [{ n }] = (await db.query<{ n: number }>("select count(*)::int as n from public.ticket_selections where rationale like '%cote en baisse'")).rows;
+    expect(n).toBeGreaterThan(0);
+  });
+
+  it("is idempotent per match day", async () => {
+    await generateCombos(db, GENERATE_AT);
+    const before = await ticketRows();
+    expect(await generateCombos(db, new Date("2026-10-25T16:00:00Z"))).toEqual({ day: "2026-10-26", created: 0, skipped: "already-generated" });
+    expect(await ticketRows()).toEqual(before);
+  });
+
+  it("does nothing before 13:00 UTC", async () => {
+    expect(await generateCombos(db, new Date("2026-10-25T08:00:00Z"))).toEqual({ day: "2026-10-26", created: 0, skipped: "before-13h" });
+    expect(await ticketRows()).toEqual([]);
+  });
+
+  it("stores probability and featured", async () => {
+    await generateCombos(db, GENERATE_AT);
+    const rows = await ticketRows();
+    expect(rows.every((t) => t.p > 0 && t.p < 1)).toBe(true);
+    const featured = rows.filter((t) => t.featured);
+    expect([2, 3]).toContain(featured.length);
+    expect(featured.every((t) => ["2", "5", "10"].includes(t.category))).toBe(true);
+  });
   });
 });

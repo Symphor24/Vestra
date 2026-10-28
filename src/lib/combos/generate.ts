@@ -2,7 +2,7 @@ import { normalizedProbabilities, selectionSignal, totalOdds } from "../odds/cal
 import { outcomeLabel, matchLabel } from "../formatting.ts";
 import { OUTCOMES, type Match, type Outcome, type Ticket, type TicketCategory } from "../types.ts";
 
-export const METHODOLOGY_VERSION = "0.2.0";
+export const METHODOLOGY_VERSION = "1.0.0";
 
 export const RULES = {
   /** Descriptive filter only: a shortening price is not evidence of value. */
