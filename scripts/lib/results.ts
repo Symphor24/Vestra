@@ -63,11 +63,15 @@ export function findFixture(p: Pending, fd: FdMatch[]): FdMatch | null {
 export interface ResultsOutcome {
   finished: number;
   postponedOrCancelled: number;
+  linked: number;
   unmatched: string[];
   errors: string[];
 }
 
-/** Settles matches that kicked off 2 h to 7 days ago and are still "scheduled". */
+/**
+ * Settles matches that kicked off 2 h to 7 days ago and are still "scheduled", and links the ones
+ * kicking off within 48 h to their football-data id (so the UI can show live status). One fetch per league covers both.
+ */
 export async function ingestResults(db: Db, fetchMatches: FetchFdMatches, now: Date): Promise<ResultsOutcome> {
   const rows = (
     await db.query<Record<string, string | Date | null>>(
@@ -79,7 +83,8 @@ export async function ingestResults(db: Db, fetchMatches: FetchFdMatches, now: D
        join public.teams h on h.id = m.home_team_id
        join public.teams a on a.id = m.away_team_id
        where m.status = 'scheduled' and c.football_data_code is not null
-         and m.kickoff_at between $1::timestamptz - interval '7 days' and $1::timestamptz - interval '2 hours'`,
+         and (m.kickoff_at between $1::timestamptz - interval '7 days' and $1::timestamptz - interval '2 hours'
+           or (m.football_data_id is null and m.kickoff_at between $1::timestamptz and $1::timestamptz + interval '48 hours'))`,
       [now.toISOString()],
     )
   ).rows;
@@ -91,7 +96,7 @@ export async function ingestResults(db: Db, fetchMatches: FetchFdMatches, now: D
     away: { id: String(r.a_id), name: String(r.a_name), external_id: r.a_ext as string | null },
   }));
 
-  const out: ResultsOutcome = { finished: 0, postponedOrCancelled: 0, unmatched: [], errors: [] };
+  const out: ResultsOutcome = { finished: 0, postponedOrCancelled: 0, linked: 0, unmatched: [], errors: [] };
   for (const code of new Set(pending.map((p) => p.code))) {
     const group = pending.filter((p) => p.code === code);
     const times = group.map((p) => p.kickoff.getTime());
@@ -104,12 +109,14 @@ export async function ingestResults(db: Db, fetchMatches: FetchFdMatches, now: D
     }
     for (const p of group) {
       const f = findFixture(p, fd);
+      const upcoming = p.kickoff >= now;
       if (!f) {
-        out.unmatched.push(`${p.home.name} – ${p.away.name}`);
+        if (!upcoming) out.unmatched.push(`${p.home.name} – ${p.away.name}`);
         continue;
       }
       try {
-        await settle(db, p, f, out);
+        if (upcoming) await link(db, p, f, out);
+        else await settle(db, p, f, out);
       } catch (e) {
         out.errors.push(`${p.home.name} – ${p.away.name} : ${(e as Error).message}`);
       }
@@ -118,8 +125,14 @@ export async function ingestResults(db: Db, fetchMatches: FetchFdMatches, now: D
   return out;
 }
 
-/** Learns team ids, then records the result or the postponement. */
-async function settle(db: Db, p: Pending, f: FdMatch, out: ResultsOutcome) {
+/** Learns team ids and records the fixture id, leaving the status alone. */
+async function link(db: Db, p: Pending, f: FdMatch, out: ResultsOutcome) {
+  await learnTeams(db, p, f);
+  await db.query("update public.matches set football_data_id = $2 where id = $1", [p.id, String(f.id)]);
+  out.linked++;
+}
+
+async function learnTeams(db: Db, p: Pending, f: FdMatch) {
   // Learn provider ids (and a shorter display name) so the next matches are matched exactly.
   for (const [ours, theirs] of [[p.home, f.homeTeam], [p.away, f.awayTeam]] as const) {
     if (ours.external_id || theirs.id === null) continue;
@@ -130,6 +143,11 @@ async function settle(db: Db, p: Pending, f: FdMatch, out: ResultsOutcome) {
       [ours.id, String(theirs.id), theirs.shortName],
     );
   }
+}
+
+/** Learns team ids, then records the result or the postponement. */
+async function settle(db: Db, p: Pending, f: FdMatch, out: ResultsOutcome) {
+  await learnTeams(db, p, f);
   const ft = f.score.fullTime;
   if ((f.status === "FINISHED" || f.status === "AWARDED") && ft.home !== null && ft.away !== null) {
     await db.query(
