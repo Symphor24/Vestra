@@ -9,12 +9,14 @@ interface MarketRow { market: MarketKey; pick: string; odds: number }
 const H2H: Record<string, string> = { Home: "home", Draw: "draw", Away: "away" };
 const DOUBLE: Record<string, string> = { "Home/Draw": "1X", "Home/Away": "12", "Draw/Away": "X2" };
 const YES_NO: Record<string, string> = { Yes: "yes", No: "no" };
+// Namespaced in the DB: The Odds API also stores bookmakers (e.g. pinnacle) and the two must never mix.
+const AF_PREFIX = "af:";
 const BET_IDS = [1, 5, 8, 12];
 const WINDOW_HOURS_UTC = [7, 8, 13, 14];
 
 /** Our rows for one bookmaker; a market is kept only when every one of its picks is priced. */
 export function marketRows(o: AfOdds, bookmaker: string): MarketRow[] {
-  const book = o.bookmakers.find((b) => b.name.toLowerCase() === bookmaker);
+  const book = o.bookmakers.find((b) => AF_PREFIX + b.name.toLowerCase() === bookmaker);
   if (!book) return [];
   const found = new Map<MarketKey, Record<string, number>>();
   const add = (market: MarketKey, pick: string | undefined, odd: string) => {
@@ -42,8 +44,10 @@ export function pickMarketsBookmaker(o: AfOdds): string | null {
   const scored = o.bookmakers
     .map((b) => ({ name: b.name.toLowerCase(), n: BET_IDS.filter((id) => b.bets.some((x) => x.id === id)).length }))
     .filter((b) => b.n > 0);
-  if (scored.some((b) => b.name === "bet365" && b.n === BET_IDS.length)) return "bet365";
-  return scored.sort((a, b) => b.n - a.n || a.name.localeCompare(b.name))[0]?.name ?? null;
+  const best = scored.some((b) => b.name === "bet365" && b.n === BET_IDS.length)
+    ? "bet365"
+    : scored.sort((a, b) => b.n - a.n || a.name.localeCompare(b.name))[0]?.name;
+  return best ? AF_PREFIX + best : null;
 }
 
 export interface MarketsOutcome {

@@ -125,5 +125,32 @@ describe("combos", () => {
     expect([2, 3]).toContain(featured.length);
     expect(featured.every((t) => ["2", "5", "10"].includes(t.category))).toBe(true);
   });
+
+  it("is all-or-nothing: a failure on a later ticket leaves no ticket, and a rerun generates the day", async () => {
+    await db.exec(`
+      create function pg_temp_fail() returns trigger language plpgsql as $$ begin if new.category <> '2' then raise exception 'boom'; end if; return new; end $$;
+      create trigger fail_later before insert on public.tickets for each row execute function pg_temp_fail();`);
+    await expect(generateCombos(db, GENERATE_AT)).rejects.toThrow("boom");
+    expect(await ticketRows()).toEqual([]);
+    await db.exec("drop trigger fail_later on public.tickets");
+    const r = await generateCombos(db, GENERATE_AT);
+    expect(r.skipped).toBeNull();
+    expect(await ticketRows()).toHaveLength(r.created);
+  });
+
+  it("ignores a same-named Odds API h2h row", async () => {
+    const legs = async () =>
+      (await db.query(
+        `select t.category, s.position, s.market_key, s.selection_key, s.odds_at_generation::float8 as odds, s.rationale
+         from public.ticket_selections s join public.tickets t on t.id = s.ticket_id order by t.category::int, s.position`,
+      )).rows;
+    await generateCombos(db, GENERATE_AT);
+    const before = await legs();
+    await db.exec("delete from public.tickets");
+    // The Odds API stores its own "bet365" h2h rows; they must not reach the AF-priced selections.
+    await db.exec("insert into public.odds_snapshots (match_id, bookmaker, market_key, selection_key, odds_value, observed_at) select id, 'bet365', 'h2h', 'home', 1.01, now() from public.matches");
+    await generateCombos(db, GENERATE_AT);
+    expect(await legs()).toEqual(before);
+  });
   });
 });

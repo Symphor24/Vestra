@@ -24,7 +24,7 @@ describe("ingestMarkets", () => {
     const r = await ingestMarkets(db, af, MORNING);
     expect(r.linked).toBe(5);
     expect(await count("select count(*) n from matches where api_football_id is not null")).toBe(5);
-    const keys = (await db.query<{ market_key: string }>("select distinct market_key from odds_snapshots where bookmaker = 'bet365' order by 1")).rows;
+    const keys = (await db.query<{ market_key: string }>("select distinct market_key from odds_snapshots where bookmaker = 'af:bet365' order by 1")).rows;
     expect(keys.map((k) => k.market_key)).toEqual(["btts", "double_chance", "h2h", "totals_1.5", "totals_2.5", "totals_3.5"]);
     expect(r.snapshots).toBe(5 * 14);
   });
@@ -34,7 +34,7 @@ describe("ingestMarkets", () => {
     const { af } = fakeAf({ odds: (id) => afOdds(id, [book("Bet365", [BETS[1], BETS[12], noUnder, BETS[8]])]) });
     await ingestMarkets(db, af, MORNING);
     expect(await count("select count(*) n from odds_snapshots where market_key = 'totals_2.5'")).toBe(0);
-    expect(await count("select count(distinct market_key) n from odds_snapshots where bookmaker = 'bet365'")).toBe(5);
+    expect(await count("select count(distinct market_key) n from odds_snapshots where bookmaker = 'af:bet365'")).toBe(5);
   });
 
   it("skips and reports an ambiguous fixture", async () => {
@@ -85,8 +85,8 @@ describe("ingestMarkets", () => {
     await ingestMarkets(db, fakeAf({ odds: (id) => afOdds(id, [book("SmallBook", [BETS[1]])]) }).af, MORNING);
     await ingestMarkets(db, fakeAf({ odds: (id) => afOdds(id, [book("SmallBook", [BETS[1]]), book("Bet365")]) }).af, AFTERNOON);
     const rows = (await db.query<{ markets_bookmaker: string }>("select distinct markets_bookmaker from matches where api_football_id is not null")).rows;
-    expect(rows).toEqual([{ markets_bookmaker: "smallbook" }]);
-    expect(await count("select count(*) n from odds_snapshots where bookmaker = 'bet365'")).toBe(0);
+    expect(rows).toEqual([{ markets_bookmaker: "af:smallbook" }]);
+    expect(await count("select count(*) n from odds_snapshots where bookmaker = 'af:bet365'")).toBe(0);
   });
 
   it("does nothing outside the two windows", async () => {
@@ -100,12 +100,12 @@ describe("ingestMarkets", () => {
 describe("marketRows / pickMarketsBookmaker", () => {
   it("prefers bet365 when it has the four bets, else the fullest book", () => {
     const o = afOdds(1, [book("Zeta", [BETS[1], BETS[8]]), book("Alpha", [BETS[1], BETS[8]]), book("Bet365")]);
-    expect(pickMarketsBookmaker(o)).toBe("bet365");
-    expect(pickMarketsBookmaker(afOdds(1, [book("Zeta", [BETS[1], BETS[8]]), book("Alpha", [BETS[1], BETS[8]])]))).toBe("alpha");
+    expect(pickMarketsBookmaker(o)).toBe("af:bet365");
+    expect(pickMarketsBookmaker(afOdds(1, [book("Zeta", [BETS[1], BETS[8]]), book("Alpha", [BETS[1], BETS[8]])]))).toBe("af:alpha");
   });
 
   it("maps the picks to our keys", () => {
-    const rows = marketRows(afOdds(1), "bet365");
+    const rows = marketRows(afOdds(1), "af:bet365");
     expect(rows).toContainEqual({ market: "double_chance", pick: "X2", odds: 2.75 });
     expect(rows).toContainEqual({ market: "totals_3.5", pick: "under", odds: 1.4 });
     expect(rows.some((r) => r.market === ("totals_0.5" as never))).toBe(false);
