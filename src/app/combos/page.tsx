@@ -4,8 +4,10 @@ import { Suspense } from "react";
 import { Layers, SlidersHorizontal } from "lucide-react";
 import { getTicketBoard } from "@/lib/data";
 import { ageHours, STALE_AFTER_HOURS } from "@/lib/odds/calc";
+import { AutoRefresh } from "@/components/live/auto-refresh";
 import { TicketCard } from "@/components/combos/ticket-card";
-import { btn, EmptyState } from "@/components/ui/bits";
+import { TicketsBrowser } from "@/components/combos/tickets-browser";
+import { btn, EmptyState, SectionTitle } from "@/components/ui/bits";
 import { ListSkeleton } from "@/components/ui/skeletons";
 
 export const metadata: Metadata = { title: "Combinés" };
@@ -17,7 +19,7 @@ export default function CombosPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-[-0.03em]">Combinés</h1>
           <p className="mt-1 max-w-prose text-sm text-muted">
-            Construits automatiquement à partir des cotes en baisse. Les cotes visées sont des objectifs : si aucune combinaison honnête ne les atteint, la catégorie reste vide.
+            Les combinés de demain sont générés chaque jour vers 13 h UTC, par paliers de cote de ~2 à ~20 000 et +. La probabilité affichée est celle du marché, si les matchs étaient indépendants.
           </p>
         </div>
         <Link href="/combos/builder" className={`${btn.base} ${btn.primary}`}>
@@ -37,22 +39,35 @@ export default function CombosPage() {
 
 async function Content() {
   const { tickets, now } = await getTicketBoard();
-  const day = tickets[0]?.matchDay;
-  const shown = tickets.filter((t) => t.matchDay === day);
-  if (shown.length === 0) {
+  if (tickets.length === 0) {
     return (
       <div className="mt-8">
         <EmptyState icon={Layers} title="Aucun combiné pour l'instant.">
-          Les sélections admissibles ne permettent pas de construire un combiné sans ajouter des matchs artificiellement.
+          Les combinés du prochain jour de matchs seront publiés vers 13 h UTC.
         </EmptyState>
       </div>
     );
   }
+  // matchDay is YYYY-MM-DD, so the string maximum is the most recent day.
+  const day = tickets.reduce((d, t) => ((t.matchDay ?? "") > d ? t.matchDay! : d), "");
+  const featured = tickets.filter((t) => t.featured && t.matchDay === day);
+  const anyLive = tickets.some((t) => t.live.some((m) => m?.state === "live" || m?.state === "paused"));
   return (
-    <div className="mt-8 grid gap-4 md:grid-cols-2">
-      {shown.map((t) => (
-        <TicketCard key={t.id} ticket={t} stale={ageHours(t.generatedAt, new Date(now)) > STALE_AFTER_HOURS} defaultOpen />
-      ))}
-    </div>
+    <>
+      {anyLive && <AutoRefresh seconds={60} />}
+      {featured.length > 0 && (
+        <section aria-labelledby="featured-title" className="mt-8">
+          <SectionTitle>
+            <span id="featured-title">À la une</span>
+          </SectionTitle>
+          <div className="grid gap-4 md:grid-cols-2">
+            {featured.map((t) => (
+              <TicketCard key={t.id} ticket={t} stale={ageHours(t.generatedAt, new Date(now)) > STALE_AFTER_HOURS} defaultOpen />
+            ))}
+          </div>
+        </section>
+      )}
+      <TicketsBrowser tickets={tickets} now={now} />
+    </>
   );
 }
