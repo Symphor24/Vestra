@@ -7,7 +7,7 @@ import { BookmarkPlus, Copy, Info, RefreshCw, Ticket, Trash2, TriangleAlert, X }
 import { reviewSlip, ticketText } from "@/lib/combos/slip";
 import { fmtOdds, fmtPct, fmtTotal } from "@/lib/formatting";
 import { toast, useFavorites, useIsClient, useSlip } from "@/lib/store";
-import type { Match } from "@/lib/types";
+import type { Match, Outcome } from "@/lib/types";
 import { btn, card, EmptyState } from "@/components/ui/bits";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { copyText } from "./ticket-card";
@@ -100,7 +100,7 @@ export function SlipBuilder({ matches, now }: { matches: Match[]; now: string })
           <button
             type="button"
             onClick={() => {
-              setLegs((ls) => ls.map((l, i) => (r.moved.has(i) ? { ...l, odds: r.moved.get(i)!, observedAt: byId.get(l.matchId)!.h2h[l.outcome].at(-1)!.observedAt } : l)));
+              setLegs((ls) => ls.map((l, i) => (r.moved.has(i) ? { ...l, odds: r.moved.get(i)!, observedAt: byId.get(l.matchId)!.h2h[l.outcome as Outcome].at(-1)!.observedAt } : l)));
               toast("Cotes mises à jour");
             }}
             className={`${btn.base} mt-5 w-full bg-white/10 hover:bg-white/15`}

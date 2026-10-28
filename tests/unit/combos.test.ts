@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLegs, eligibleCandidates, generateTickets, type Candidate } from "@/lib/combos/generate";
+import { eligibleCandidates } from "@/lib/combos/generate";
 import { reviewSlip, ticketText } from "@/lib/combos/slip";
 import { buildDemoMatches } from "@/lib/demo/data";
 import type { Leg, Match } from "@/lib/types";
@@ -31,29 +31,9 @@ describe("eligibleCandidates", () => {
   });
 });
 
-describe("buildLegs / generateTickets", () => {
-  it("is deterministic and keeps totals inside each target band", () => {
-    const a = generateTickets(matches, now);
-    expect(generateTickets(matches, now)).toEqual(a);
-    const band = { moderate: [2, 5], intermediate: [10, 50], high: [100, Infinity] } as const;
-    for (const t of a) {
-      const [min, max] = band[t.category];
-      expect(t.totalOdds).toBeGreaterThanOrEqual(min);
-      expect(t.totalOdds).toBeLessThanOrEqual(max);
-      expect(new Set(t.legs.map((l) => l.matchId)).size).toBe(t.legs.length);
-    }
-  });
-
-  it("returns nothing rather than padding when the target is out of reach", () => {
-    const few = eligibleCandidates(matches, now).slice(0, 2) as Candidate[];
-    expect(buildLegs(few, "high")).toBeNull();
-    expect(generateTickets([], now)).toEqual([]);
-  });
-});
-
 describe("reviewSlip", () => {
   const leg = (matchId: string, outcome: Leg["outcome"], odds: number): Leg => ({
-    matchId, outcome, odds, observedAt: now.toISOString(), label: outcome, matchLabel: matchId,
+    matchId, market: "h2h", outcome, odds, observedAt: now.toISOString(), label: outcome, matchLabel: matchId,
   });
 
   it("flags two outcomes of the same match as incompatible and refuses a probability", () => {
@@ -101,19 +81,10 @@ describe("quality filters (§11.4)", () => {
     expect(eligibleCandidates([{ ...stale, confirmedAt: now.toISOString() }], now)).toHaveLength(1);
   });
 
-  it("never combines two matches of the same team", () => {
-    const c = eligibleCandidates(matches, now);
-    const clone = (id: string, from: Candidate): Candidate => ({ ...from, match: { ...from.match, id, away: { ...from.match.away, id: "other" } } });
-    // Second Arsenal match: same home team, different fixture.
-    const ars2 = clone("ars-2", c.find((x) => x.match.id === "ars-che")!);
-    const legs = buildLegs([c.find((x) => x.match.id === "ars-che")!, ars2, ...c], "intermediate")!;
-    expect(legs.map((l) => l.match.id)).not.toContain("ars-2");
-  });
-
   it("flags shared-team legs in a user slip and withholds the probability", () => {
     const ars2: Match = { ...ars, id: "ars-2", away: { id: "x", name: "X", shortName: "X" } };
     const map = new Map([...byId, ["ars-2", ars2]]);
-    const leg = (matchId: string): Leg => ({ matchId, outcome: "home", odds: 1.85, observedAt: now.toISOString(), label: "", matchLabel: "" });
+    const leg = (matchId: string): Leg => ({ matchId, market: "h2h", outcome: "home", odds: 1.85, observedAt: now.toISOString(), label: "", matchLabel: "" });
     const r = reviewSlip([leg("ars-che"), leg("ars-2")], map, now);
     expect([...r.correlated]).toEqual([0, 1]);
     expect(r.probabilityIfIndependent).toBeNull();

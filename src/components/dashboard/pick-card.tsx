@@ -48,7 +48,7 @@ export function PickCard({ pick, now }: { pick: Candidate; now: string }) {
         </Link>
         <AddToSlip
           compact
-          leg={{ matchId: m.id, outcome: pick.outcome, odds: pick.odds, observedAt: pick.observedAt, label, matchLabel: matchLabel(m) }}
+          leg={{ matchId: m.id, market: "h2h", outcome: pick.outcome, odds: pick.odds, observedAt: pick.observedAt, label, matchLabel: matchLabel(m) }}
         />
       </div>
     </article>

@@ -69,10 +69,11 @@ const insertTicket = () =>
 describe("ui_tickets", () => {
   it("returns tickets with readable legs", async () => {
     await insertTicket();
-    // Raw rows: parseTickets still validates the old categories until the UI task.
-    const raw = (await asAnon("ui_tickets", T1)) as Array<{ category: string; legs: Array<Record<string, unknown>> }>;
-    expect(raw.map((t) => [t.category, t.legs.length])).toEqual([["2", 1]]);
-    expect(raw[0].legs[0]).toMatchObject({ market: "h2h", outcome: "home", odds: 1.75, rationale: "Cote 1.75" });
+    const [t] = parseTickets(await asAnon("ui_tickets", T1));
+    expect(t).toMatchObject({ tier: 2, featured: true, probability: 0.57, result: null });
+    expect(t.legs).toHaveLength(1);
+    expect(t.legs[0]).toMatchObject({ market: "h2h", outcome: "home", odds: 1.75, rationale: "Cote 1.75", matchState: "scheduled", footballDataId: null });
+    expect(t.legs[0].label).toMatch(/^Victoire /);
   });
 
   it("keeps 30 days of history, including tickets whose matches have started", async () => {
@@ -92,14 +93,10 @@ describe("ui_tickets history", () => {
       select t.id, (select min(id) from public.matches), 'totals_2.5', 'over', 2, now(), 1, case when t.result = 'won' then 'won' end
       from public.tickets t;
     `);
-    const raw = (await asAnon("ui_tickets", T1)) as Array<{ category: string; status: string; result: string | null; featured: boolean; legs: Array<Record<string, unknown>> }>;
-    expect(raw.map((t) => [t.category, t.status, t.result, t.featured])).toEqual([
-      ["10", "active", null, true],
-      ["5", "settled", "won", false],
-    ]);
-    const leg = raw[1].legs[0];
-    expect(leg).toMatchObject({ market: "totals_2.5", outcome: "over", result: "won", matchStatus: "scheduled" });
-    expect(leg).toHaveProperty("footballDataId", null);
+    const tickets = parseTickets(await asAnon("ui_tickets", T1));
+    expect(tickets.map((t) => [t.tier, t.result, t.featured])).toEqual([[10, null, true], [5, "won", false]]);
+    expect(tickets[1].legs[0]).toMatchObject({ market: "totals_2.5", outcome: "over", result: "won", matchState: "scheduled", footballDataId: null });
+    expect(tickets[1].legs[0].label).toBe("Plus de 2,5 buts");
   });
 });
 

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { BookmarkPlus, ChevronDown, Copy, SlidersHorizontal } from "lucide-react";
 import { ticketText } from "@/lib/combos/slip";
-import { categoryLabel, categoryTarget, fmtOdds, fmtTotal, MARKET_LABEL } from "@/lib/formatting";
+import { fmtOdds, fmtPct, fmtTotal, tierLabel } from "@/lib/formatting";
 import { ticketLegs, toast, useFavorites, useSlip } from "@/lib/store";
 import type { Ticket } from "@/lib/types";
 import { btn } from "@/components/ui/bits";
@@ -19,12 +19,6 @@ export async function copyText(text: string) {
   }
 }
 
-const RISK_NOTE = {
-  moderate: "Peu de sélections : le cumul d'incertitude reste limité, sans être nul.",
-  intermediate: "Chaque sélection ajoutée réduit la probabilité que toutes soient gagnantes.",
-  high: "Combiné spéculatif : la probabilité que toutes les sélections passent est très faible.",
-};
-
 /** The ticket is the product's signature object: navy in both themes, total odds set large. */
 export function TicketCard({ ticket, stale, defaultOpen = false }: { ticket: Ticket; stale: boolean; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -33,7 +27,7 @@ export function TicketCard({ ticket, stale, defaultOpen = false }: { ticket: Tic
   const router = useRouter();
   const legs = ticketLegs(ticket);
   const saved = favs.tickets.some((t) => t.id === ticket.id);
-  const panelId = `legs-${ticket.category}`;
+  const panelId = `legs-${ticket.tier}`;
 
   return (
     <article className="flex flex-col overflow-hidden rounded-card bg-hero text-hero-text">
@@ -41,8 +35,8 @@ export function TicketCard({ ticket, stale, defaultOpen = false }: { ticket: Tic
         <div className="absolute inset-0 bg-[radial-gradient(80%_100%_at_100%_0%,rgb(200_241_105/0.14),transparent_60%)]" aria-hidden="true" />
         <div className="relative flex items-start justify-between gap-4">
           <div>
-            <h3 className="font-semibold">{categoryLabel[ticket.category]}</h3>
-            <p className="text-xs text-hero-muted">{categoryTarget[ticket.category]}</p>
+            <h3 className="font-semibold">Combiné {tierLabel(ticket.tier)}</h3>
+            {ticket.probability !== null && <p className="text-xs text-hero-muted">Probabilité estimée {fmtPct(ticket.probability * 100)}</p>}
           </div>
           <p className="text-right">
             <span className="block text-[11px] text-hero-muted">Cote totale théorique</span>
@@ -79,7 +73,7 @@ export function TicketCard({ ticket, stale, defaultOpen = false }: { ticket: Tic
         </ol>
         {open && (
           <p className="mt-4 rounded-[14px] bg-white/[0.06] p-3 text-xs leading-relaxed text-hero-muted">
-            {MARKET_LABEL}. {RISK_NOTE[ticket.category]} Aucune équipe n’apparaît deux fois ; les autres corrélations ne sont pas évaluées. Méthodologie v{ticket.methodologyVersion}.
+            Chaque sélection ajoutée réduit la probabilité que toutes soient gagnantes. Aucune équipe n’apparaît deux fois ; les autres corrélations ne sont pas évaluées. Méthodologie v{ticket.methodologyVersion}.
           </p>
         )}
         <button
@@ -118,7 +112,7 @@ export function TicketCard({ ticket, stale, defaultOpen = false }: { ticket: Tic
               if (saved) return;
               setFavs((f) => ({
                 ...f,
-                tickets: [...f.tickets, { id: ticket.id, title: `Combiné ${categoryLabel[ticket.category].toLowerCase()}`, legs, savedAt: new Date().toISOString() }],
+                tickets: [...f.tickets, { id: ticket.id, title: `Combiné ${tierLabel(ticket.tier)}`, legs, savedAt: new Date().toISOString() }],
               }));
               toast("Combiné enregistré dans vos favoris");
             }}

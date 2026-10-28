@@ -2,22 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { Layers, SlidersHorizontal } from "lucide-react";
-import { getTickets } from "@/lib/data";
-import { CATEGORIES } from "@/lib/combos/generate";
+import { getTicketBoard } from "@/lib/data";
 import { ageHours, STALE_AFTER_HOURS } from "@/lib/odds/calc";
-import { categoryLabel, categoryTarget } from "@/lib/formatting";
-import type { TicketCategory } from "@/lib/types";
 import { TicketCard } from "@/components/combos/ticket-card";
 import { btn, EmptyState } from "@/components/ui/bits";
 import { ListSkeleton } from "@/components/ui/skeletons";
 
 export const metadata: Metadata = { title: "Combinés" };
-
-const ABOUT: Record<TicketCategory, string> = {
-  moderate: "Deux ou trois sélections parmi les cotes les plus courtes. C'est la catégorie la moins incertaine, sans être sûre.",
-  intermediate: "Plus de sélections, donc plus d'incertitude : chaque match ajouté réduit la probabilité que tout passe.",
-  high: "Catégorie spéculative. Une cote élevée reflète une faible probabilité, pas une rentabilité.",
-};
 
 export default function CombosPage() {
   return (
@@ -45,28 +36,23 @@ export default function CombosPage() {
 }
 
 async function Content() {
-  const { tickets, now } = await getTickets();
+  const { tickets, now } = await getTicketBoard();
+  const day = tickets[0]?.matchDay;
+  const shown = tickets.filter((t) => t.matchDay === day);
+  if (shown.length === 0) {
+    return (
+      <div className="mt-8">
+        <EmptyState icon={Layers} title="Aucun combiné pour l'instant.">
+          Les sélections admissibles ne permettent pas de construire un combiné sans ajouter des matchs artificiellement.
+        </EmptyState>
+      </div>
+    );
+  }
   return (
-    <div className="mt-8 space-y-10">
-      {(Object.keys(CATEGORIES) as TicketCategory[]).map((c) => {
-        const t = tickets.find((x) => x.category === c);
-        return (
-          <section key={c} aria-labelledby={`cat-${c}`} className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] md:gap-8">
-            <div>
-              <h2 id={`cat-${c}`} className="text-lg font-semibold tracking-tight">{categoryLabel[c]}</h2>
-              <p className="text-sm font-medium text-muted">{categoryTarget[c]}</p>
-              <p className="mt-2 text-sm leading-relaxed text-muted">{ABOUT[c]}</p>
-            </div>
-            {t ? (
-              <TicketCard ticket={t} stale={ageHours(t.generatedAt, new Date(now)) > STALE_AFTER_HOURS} defaultOpen />
-            ) : (
-              <EmptyState icon={Layers} title="Aucun combiné dans cette catégorie pour l'instant.">
-                Les sélections admissibles ne permettent pas d&apos;atteindre cet objectif sans ajouter des matchs artificiellement.
-              </EmptyState>
-            )}
-          </section>
-        );
-      })}
+    <div className="mt-8 grid gap-4 md:grid-cols-2">
+      {shown.map((t) => (
+        <TicketCard key={t.id} ticket={t} stale={ageHours(t.generatedAt, new Date(now)) > STALE_AFTER_HOURS} defaultOpen />
+      ))}
     </div>
   );
 }

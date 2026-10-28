@@ -124,7 +124,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
                     <span className="sm:hidden">
                     <AddToSlip
                       compact
-                      leg={{ matchId: m.id, outcome: o, odds: s.current.odds, observedAt: s.current.observedAt, label: outcomeLabel(m, o), matchLabel: matchLabel(m) }}
+                      leg={{ matchId: m.id, market: "h2h", outcome: o, odds: s.current.odds, observedAt: s.current.observedAt, label: outcomeLabel(m, o), matchLabel: matchLabel(m) }}
                     />
                     </span>
                   )}
@@ -132,7 +132,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
                     <span className="hidden sm:block">
                     <AddToSlip
                       className="w-full"
-                      leg={{ matchId: m.id, outcome: o, odds: s.current.odds, observedAt: s.current.observedAt, label: outcomeLabel(m, o), matchLabel: matchLabel(m) }}
+                      leg={{ matchId: m.id, market: "h2h", outcome: o, odds: s.current.odds, observedAt: s.current.observedAt, label: outcomeLabel(m, o), matchLabel: matchLabel(m) }}
                     />
                     </span>
                   )}

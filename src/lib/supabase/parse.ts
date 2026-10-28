@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { matchLabel, outcomeLabel } from "../formatting.ts";
+import { MARKET_PICKS, pickLabel, type MarketKey } from "../combos/markets.ts";
+import type { MatchState } from "../combos/settle.ts";
+import { TIERS } from "../combos/tiers.ts";
 import type { Match, Ticket } from "../types.ts";
 
 // Validates what ui_matches / ui_tickets return before it reaches the UI.
@@ -13,7 +15,6 @@ const ts = z.string().transform((s, ctx) => {
   return new Date(t).toISOString();
 });
 const odds = z.number().gt(1);
-const outcome = z.enum(["home", "draw", "away"]);
 const team = z.object({ id: z.string(), name: z.string(), shortName: z.string() });
 const point = z.object({ observedAt: ts, odds });
 
@@ -33,25 +34,47 @@ const MatchRow = z.object({
   h2h: z.object({ home: z.array(point), draw: z.array(point), away: z.array(point) }),
 });
 
+const tier = z.string().transform((c, ctx) => {
+  const t = TIERS.find((x) => String(x) === c);
+  if (t === undefined) ctx.addIssue({ code: "custom", message: `palier inconnu : ${c}` });
+  return t ?? z.NEVER;
+});
+const market = z.enum(Object.keys(MARKET_PICKS) as [MarketKey, ...MarketKey[]]);
+const result = z.enum(["won", "lost", "void"]).nullable();
+// Raw matches.status → what settleLeg expects.
+const MATCH_STATE: Record<string, MatchState> = { scheduled: "scheduled", live: "live", finished: "finished", postponed: "void", cancelled: "void" };
+const matchState = z.enum(["scheduled", "live", "finished", "postponed", "cancelled"]).transform((s) => MATCH_STATE[s]);
+
 const TicketRow = z.object({
   id: z.string(),
-  category: z.enum(["moderate", "intermediate", "high"]),
+  category: tier,
   totalOdds: odds,
+  probability: z.number().nullable(),
+  featured: z.boolean(),
+  result,
+  matchDay: z.string().nullable(),
   generatedAt: ts,
   methodologyVersion: z.string(),
   legs: z
     .array(
       z.object({
         matchId: z.string(),
-        outcome,
+        market,
+        outcome: z.string(),
         odds,
         observedAt: ts,
         rationale: z.string(),
+        result,
+        kickoffAt: ts,
+        footballDataId: z.string().nullable(),
+        matchStatus: matchState,
+        homeScore: z.number().int().nullable(),
+        awayScore: z.number().int().nullable(),
         home: team.omit({ id: true }),
         away: team.omit({ id: true }),
       }),
     )
-    .min(2),
+    .min(1),
 });
 
 export function parseMatches(json: unknown): Match[] {
@@ -59,12 +82,14 @@ export function parseMatches(json: unknown): Match[] {
 }
 
 export function parseTickets(json: unknown): Ticket[] {
-  return z.array(TicketRow).parse(json).map(({ legs, ...t }) => ({
+  return z.array(TicketRow).parse(json).map(({ category, legs, ...t }) => ({
     ...t,
-    legs: legs.map(({ home, away, ...l }) => ({
+    tier: category,
+    legs: legs.map(({ home, away, matchStatus, ...l }) => ({
       ...l,
-      label: outcomeLabel({ home: { ...home, id: "" }, away: { ...away, id: "" } }, l.outcome),
-      matchLabel: matchLabel({ home: { ...home, id: "" }, away: { ...away, id: "" } }),
+      matchState: matchStatus,
+      label: pickLabel(l.market, l.outcome, home.shortName, away.shortName),
+      matchLabel: `${home.name} – ${away.name}`,
     })),
   }));
 }

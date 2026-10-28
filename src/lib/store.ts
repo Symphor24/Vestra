@@ -7,6 +7,10 @@ import type { Leg, Ticket } from "@/lib/types";
 const EVENT = "vestra-store";
 const cache = new Map<string, { raw: string | null; value: unknown }>();
 
+// Legs saved before multi-market tickets have no market: they were all 1X2.
+const withMarket = (_: string, v: unknown) =>
+  v && typeof v === "object" && "matchId" in v && "outcome" in v && !("market" in v) ? { ...v, market: "h2h" } : v;
+
 function read<T>(key: string, initial: T): T {
   let raw: string | null = null;
   try {
@@ -17,7 +21,7 @@ function read<T>(key: string, initial: T): T {
   let value = initial;
   if (raw !== null) {
     try {
-      value = JSON.parse(raw) as T;
+      value = JSON.parse(raw, withMarket) as T;
     } catch {}
   }
   cache.set(key, { raw, value });
@@ -80,8 +84,8 @@ export const useTimeZone = () => useStored("vestra-tz", "");
 export const useFavoriteCompetitions = () => useStored("vestra-comps", NO_COMPS);
 
 export const ticketLegs = (t: Ticket): Leg[] =>
-  t.legs.map(({ matchId, outcome, odds, observedAt, label, matchLabel }) => ({
-    matchId, outcome, odds, observedAt, label, matchLabel,
+  t.legs.map(({ matchId, market, outcome, odds, observedAt, label, matchLabel }) => ({
+    matchId, market, outcome, odds, observedAt, label, matchLabel,
   }));
 
 export function toast(message: string, tone: "ok" | "error" = "ok") {

@@ -1,4 +1,5 @@
-import type { Match, Outcome, TicketCategory } from "./types.ts";
+import type { Tier } from "./combos/tiers.ts";
+import type { Match, Outcome } from "./types.ts";
 
 export const matchLabel = (m: Pick<Match, "home" | "away">) => `${m.home.name} – ${m.away.name}`;
 
@@ -11,17 +12,7 @@ export const outcomeCode: Record<Outcome, string> = { home: "1", draw: "N", away
 
 export const MARKET_LABEL = "Résultat du match (1N2)";
 
-export const categoryLabel: Record<TicketCategory, string> = {
-  moderate: "Cote modérée",
-  intermediate: "Intermédiaire",
-  high: "Cote élevée",
-};
-
-export const categoryTarget: Record<TicketCategory, string> = {
-  moderate: "Objectif 2 à 5",
-  intermediate: "Objectif 10 à 50",
-  high: "Objectif 100 et plus",
-};
+export const tierLabel = (t: Tier) => (t === 20000 ? "~20 000 et +" : `~${t.toLocaleString("fr-FR")}`);
 
 export const fmtOdds = (o: number) => o.toFixed(2);
 

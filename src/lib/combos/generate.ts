@@ -1,6 +1,5 @@
-import { normalizedProbabilities, selectionSignal, totalOdds } from "../odds/calc.ts";
-import { outcomeLabel, matchLabel } from "../formatting.ts";
-import { OUTCOMES, type Match, type Outcome, type Ticket, type TicketCategory } from "../types.ts";
+import { normalizedProbabilities, selectionSignal } from "../odds/calc.ts";
+import { OUTCOMES, type Match, type Outcome } from "../types.ts";
 
 export const METHODOLOGY_VERSION = "1.0.0";
 
@@ -21,13 +20,6 @@ export function consensusDeviationPct(match: Match, outcome: Outcome, odds: numb
   const c = match.consensus?.[outcome];
   return c ? (Math.abs(odds - c) / c) * 100 : null;
 }
-
-/** Build targets, not promises: a category is left empty rather than padded. */
-export const CATEGORIES: Record<TicketCategory, { min: number; max: number; maxLegs: number }> = {
-  moderate: { min: 2, max: 5, maxLegs: 3 },
-  intermediate: { min: 10, max: 50, maxLegs: 6 },
-  high: { min: 100, max: Infinity, maxLegs: 8 },
-};
 
 export interface Candidate {
   match: Match;
@@ -73,58 +65,4 @@ export function eligibleCandidates(matches: Match[], now: Date, rules = RULES): 
     if (best) out.push(best);
   }
   return out.sort((a, b) => b.dropPct - a.dropPct || a.odds - b.odds || a.match.id.localeCompare(b.match.id));
-}
-
-const teamIds = (m: Match) => [m.home.id, m.away.id];
-
-/**
- * Greedy, deterministic: walk candidates in order, skip any leg that would overshoot the target
- * or that shares a team with a leg already chosen (its outcomes would be correlated).
- */
-export function buildLegs(candidates: Candidate[], category: TicketCategory): Candidate[] | null {
-  const { min, max, maxLegs } = CATEGORIES[category];
-  // The moderate ticket favours the shortest prices; the others follow signal strength.
-  const ordered = category === "moderate" ? [...candidates].sort((a, b) => a.odds - b.odds) : candidates;
-  const legs: Candidate[] = [];
-  let product = 1;
-  for (const c of ordered) {
-    if (legs.length >= maxLegs || product >= min) break;
-    if (product * c.odds > max) continue;
-    if (legs.some((l) => teamIds(l.match).some((t) => teamIds(c.match).includes(t)))) continue;
-    legs.push(c);
-    product *= c.odds;
-  }
-  return legs.length >= 2 && product >= min ? legs : null;
-}
-
-export function rationale(c: Candidate): string {
-  const base = `Cote passée de ${c.firstOdds.toFixed(2)} à ${c.odds.toFixed(2)} (−${c.dropPct.toFixed(1)} %) sur ${c.observations} observations Vestra chez le même bookmaker.`;
-  const dev = consensusDeviationPct(c.match, c.outcome, c.odds);
-  return dev === null ? base : `${base} Écart de ${dev.toFixed(1)} % avec la cote médiane du marché.`;
-}
-
-export function generateTickets(matches: Match[], now: Date): Ticket[] {
-  const candidates = eligibleCandidates(matches, now);
-  const tickets: Ticket[] = [];
-  for (const category of Object.keys(CATEGORIES) as TicketCategory[]) {
-    const legs = buildLegs(candidates, category);
-    if (!legs) continue;
-    tickets.push({
-      id: `${category}-${now.toISOString()}`,
-      category,
-      legs: legs.map((c) => ({
-        matchId: c.match.id,
-        outcome: c.outcome,
-        odds: c.odds,
-        observedAt: c.observedAt,
-        label: outcomeLabel(c.match, c.outcome),
-        matchLabel: matchLabel(c.match),
-        rationale: rationale(c),
-      })),
-      totalOdds: totalOdds(legs.map((l) => l.odds))!,
-      generatedAt: now.toISOString(),
-      methodologyVersion: METHODOLOGY_VERSION,
-    });
-  }
-  return tickets;
 }

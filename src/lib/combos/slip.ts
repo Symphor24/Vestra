@@ -1,6 +1,6 @@
 import { normalizedProbabilities, selectionSignal, totalOdds } from "../odds/calc.ts";
 import { fmtOdds, fmtTotal, MARKET_LABEL } from "../formatting.ts";
-import { OUTCOMES, type Leg, type Match } from "../types.ts";
+import { OUTCOMES, type Leg, type Match, type Outcome } from "../types.ts";
 
 export interface SlipReview {
   count: number;
@@ -27,16 +27,18 @@ export function reviewSlip(legs: Leg[], matches: Map<string, Match>, now: Date):
   const probs: (number | null)[] = [];
   legs.forEach((leg, i) => {
     const m = matches.get(leg.matchId);
-    if (!m || m.status !== "scheduled") {
+    // The slip builder only handles 1X2 legs; any other market cannot be re-priced here.
+    if (!m || m.status !== "scheduled" || leg.market !== "h2h") {
       stale.add(i);
       probs.push(null);
       return;
     }
-    const s = selectionSignal(m.h2h[leg.outcome], now, m.confirmedAt);
+    const pick = leg.outcome as Outcome;
+    const s = selectionSignal(m.h2h[pick], now, m.confirmedAt);
     if (s.stale) stale.add(i);
     if (s.current && s.current.odds !== leg.odds) moved.set(i, s.current.odds);
     const market = normalizedProbabilities(OUTCOMES.map((o) => m.h2h[o].at(-1)?.odds ?? NaN));
-    probs.push(market?.[OUTCOMES.indexOf(leg.outcome)] ?? null);
+    probs.push(market?.[OUTCOMES.indexOf(pick)] ?? null);
   });
 
   const correlated = new Set<number>();

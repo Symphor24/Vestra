@@ -1,3 +1,7 @@
+import type { LegResult, MatchState } from "./combos/settle.ts";
+import type { MarketKey } from "./combos/markets.ts";
+import type { Tier } from "./combos/tiers.ts";
+
 export type Outcome = "home" | "draw" | "away";
 export const OUTCOMES: Outcome[] = ["home", "draw", "away"];
 
@@ -42,11 +46,11 @@ export interface Match {
   consensus?: Partial<Record<Outcome, number>>;
 }
 
-export type TicketCategory = "moderate" | "intermediate" | "high";
-
 export interface Leg {
   matchId: string;
-  outcome: Outcome;
+  market: MarketKey;
+  /** A 1X2 outcome for "h2h", otherwise the pick of the market (over, yes, 1X…). */
+  outcome: string;
   odds: number;
   observedAt: string;
   /** Snapshot of names so a saved slip stays readable without the match data. */
@@ -56,9 +60,22 @@ export interface Leg {
 
 export interface Ticket {
   id: string;
-  category: TicketCategory;
-  legs: (Leg & { rationale: string })[];
+  tier: Tier;
+  legs: (Leg & {
+    rationale: string;
+    result: LegResult | null;
+    kickoffAt: string;
+    /** Null for demo data and matches the provider does not cover. */
+    footballDataId: string | null;
+    matchState: MatchState;
+    homeScore: number | null;
+    awayScore: number | null;
+  })[];
   totalOdds: number;
+  probability: number | null;
+  featured: boolean;
+  result: LegResult | null;
+  matchDay: string | null;
   generatedAt: string;
   methodologyVersion: string;
 }
