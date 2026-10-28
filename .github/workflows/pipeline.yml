@@ -23,7 +23,7 @@ env:
 jobs:
   pipeline:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -43,6 +43,13 @@ jobs:
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
           ODDS_API_MONTHLY_CREDIT_CAP: ${{ vars.ODDS_API_MONTHLY_CREDIT_CAP || '470' }}
+
+      # The script picks its own windows (07:00-08:59 and 13:00-14:59 UTC) and enforces the 90/day budget.
+      - name: Ingest markets
+        if: ${{ !cancelled() }}
+        run: node scripts/ingest-markets.ts
+        env:
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
 
       # Run even if one league failed to ingest: the others still deserve fresh analyses.
       - name: Analyse matches

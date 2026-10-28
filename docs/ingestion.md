@@ -1,13 +1,14 @@
 # Pipeline des cotes et sauvegardes
 
-Trois fois par jour, le workflow `pipeline.yml` enchaîne quatre scripts :
+Trois fois par jour, le workflow `pipeline.yml` enchaîne cinq scripts :
 
 | Étape | Script | Écrit dans |
 |---|---|---|
 | 1. Résultats | `scripts/ingest-results.ts` | `matches` (statut, score), `teams` (ids, noms courts) |
-| 2. Cotes | `scripts/ingest-odds.ts` | `teams`, `matches`, `odds_snapshots` |
-| 3. Analyse | `scripts/analyze-matches.ts` | `matches_analysis` |
-| 4. Combinés | `scripts/generate-combos.ts` | `tickets`, `ticket_selections` |
+| 2. Cotes 1N2 | `scripts/ingest-odds.ts` | `teams`, `matches`, `odds_snapshots` |
+| 3. Marchés | `scripts/ingest-markets.ts` | `matches` (`api_football_id`, `markets_bookmaker`), `odds_snapshots` |
+| 4. Analyse | `scripts/analyze-matches.ts` | `matches_analysis` |
+| 5. Combinés | `scripts/generate-combos.ts` | `tickets`, `ticket_selections` |
 
 L'étape 1 est sautée si `FOOTBALL_DATA_API_KEY` n'est pas défini. Chaque étape tourne même si la précédente a échoué. Chaque étape est journalisée dans `sync_runs`.
 
@@ -38,6 +39,15 @@ En cas d'ambiguïté, le match est **signalé, jamais deviné** (`unmatched` dan
 
 **Statuts** : `FINISHED` donne le score final. `POSTPONED` ou `CANCELLED` retire le match du programme. Un match reporté revient automatiquement quand The Odds API annonce une nouvelle date. Entre le coup d'envoi et le résultat, le match n'est pas affiché, faute de source fiable pour le direct.
 
+## Marchés (`scripts/ingest-markets.ts`, API-Football)
+
+Les combinés multi-marchés ont besoin de Double chance, Plus/Moins 1,5 / 2,5 / 3,5 buts et Les deux équipes marquent, que The Odds API n'offre pas dans notre forfait. Ils viennent d'API-Football (`API_FOOTBALL_KEY`), pour les matchs de **demain** seulement.
+
+- **Fenêtres** : le script décide lui-même s'il travaille. Il agit entre 07:00 et 08:59 UTC (lancement de 07:15) et entre 13:00 et 14:59 UTC (lancement de 13:15), donc deux observations par jour. Le lancement de 18:15 ne fait rien.
+- **Budget** : 90 requêtes par jour au plus, comptées dans `sync_runs` (job `ingest-markets`, colonne `credits_used`). Le script s'arrête avant tout appel qui dépasserait le budget.
+- **Rattachement** : chaque match de la base est lié à une rencontre API-Football (`matches.api_football_id`) par ligue, coup d'envoi et équipes. En cas d'ambiguïté, le match est signalé, jamais deviné.
+- **Bookmaker de référence** : choisi une fois par match (`matches.markets_bookmaker`) et conservé ensuite, pour que les mouvements restent comparables. Bet365 s'il propose tous les marchés, sinon le bookmaker qui en couvre le plus (ordre alphabétique en cas d'égalité). Dans `odds_snapshots`, ces bookmakers sont préfixés `af:` (par exemple `af:bet365`) pour ne jamais se mélanger à ceux de The Odds API.
+
 ## Analyse (`scripts/analyze-matches.ts`)
 
 Pour chaque issue des matchs à venir, une ligne dans `matches_analysis` (mise à jour, jamais dupliquée) : première cote observée, cote actuelle, variation, probabilité implicite brute et sans marge, cote médiane de tous les bookmakers, nombre de bookmakers. Chaque ligne reçoit un statut de qualité :
@@ -54,13 +64,12 @@ Pour chaque issue des matchs à venir, une ligne dans `matches_analysis` (mise �
 
 ## Combinés (`scripts/generate-combos.ts`)
 
-Le générateur est celui de l'interface (`src/lib/combos/generate.ts`, méthodologie v0.2.0), appliqué aux données de la base.
-- **Sélections admissibles** : statut de qualité `ok`, baisse de 10 à 50 % (au-delà, erreur probable), coup d'envoi dans plus de 30 minutes, une seule issue par match.
+Le générateur est celui de l'interface (`src/lib/combos/generate.ts`), appliqué aux données de la base.
+- **Une journée à la fois, figée** : les combinés de demain sont générés à partir de 13:00 UTC la veille (donc au lancement de 13:15), une seule fois par jour. Une fois insérés, ils ne changent plus (`tickets.match_day`).
+- **Un combiné par palier de cote** (5, 10, ... : `tickets.category`), unique par jour et par palier. Un combiné est « à la une » (`featured`) pour les deux meilleurs de la journée (et le troisième s'il est proche).
+- **Sélections admissibles** : marchés de `ingest-markets` (Double chance, Plus/Moins, Les deux équipes marquent) sur le bookmaker de référence du match, statut de qualité `ok`, une seule sélection par match.
 - **Corrélation** : deux matchs de la même équipe ne sont jamais combinés. Les autres corrélations ne sont pas évaluées, et l'interface le dit.
-- **Cycle de vie des tickets** :
-  - un ticket identique à un ticket actif est conservé tel quel ;
-  - tout autre ticket actif passe en `invalidated` ;
-  - un ticket passe en `expired` dès le premier coup d'envoi de ses matchs.
+- **Règlement** : `ingest-results.ts` rattache à l'avance les matchs à venir (48 h) à leur identifiant football-data, puis règle chaque sélection (`ticket_selections.result`) et chaque ticket (`tickets.result`, `settled_at`) : `won`, `lost` ou `void`.
 - `estimated_probability` reste vide : le produit des probabilités supposerait l'indépendance, que rien ne garantit.
 
 ## Lancer à la main
@@ -71,7 +80,8 @@ npm run ingest               # coûte environ 5 crédits
 npm run analyze
 npm run combos
 npm run results              # nécessite FOOTBALL_DATA_API_KEY
-npm run pipeline             # les quatre à la suite
+npm run markets              # nécessite API_FOOTBALL_KEY ; n'agit que dans les fenêtres 07:00 et 13:00 UTC
+npm run pipeline             # les cinq à la suite
 ```
 
 ## Mettre en place sur GitHub
@@ -84,6 +94,7 @@ npm run pipeline             # les quatre à la suite
    | `DATABASE_URL` | Supabase > Connect > **Session pooler** (pas « Direct connection », qui n'est accessible qu'en IPv6, alors que GitHub n'a pas d'IPv6) |
    | `ODDS_API_KEY` | clé The Odds API |
    | `FOOTBALL_DATA_API_KEY` | clé football-data.org (gratuite, sur inscription) |
+   | `API_FOOTBALL_KEY` | clé API-Football (marchés des combinés) |
    | `BACKUP_PASSPHRASE` | phrase longue et aléatoire, **à conserver ailleurs** : sans elle, les sauvegardes sont illisibles |
 
 3. Optionnel, dans l'onglet *Variables* : `ODDS_API_MONTHLY_CREDIT_CAP` pour changer le plafond.

@@ -20,11 +20,13 @@ Configuration : `netlify.toml` (build `npm run build`, Node 24). Netlify détect
 
 Chaque push sur `main` redéploie le site. Les pages se renouvellent seules au bout de quelques minutes (`cacheLife("minutes")`), donc une synchro ne demande pas de redéploiement.
 
+**Secret GitHub `API_FOOTBALL_KEY`** (*Settings > Secrets and variables > Actions*) : clé API-Football, utilisée par `ingest-markets.ts`. Elle va uniquement dans GitHub et `.env.local`, **jamais sur Netlify**.
+
 ## Ce qui tourne tout seul
 
 | Quoi | Quand | Où regarder |
 |---|---|---|
-| Synchro résultats + cotes + analyse + combinés | 07:15, 13:15, 18:15 UTC | GitHub > *Actions > Odds pipeline* ; table `sync_runs` |
+| Synchro résultats + cotes + marchés + analyse + combinés | 07:15, 13:15, 18:15 UTC | GitHub > *Actions > Odds pipeline* ; table `sync_runs` |
 | Sauvegarde chiffrée | lundi 03:30 UTC | GitHub > *Actions > Backup database* > artefacts (90 jours) |
 | Nettoyage (`prune_old_data`) | fin de chaque synchro | taille de la base dans Supabase > *Database* |
 | Site | à chaque push sur `main` | Netlify > *Deploys* |
@@ -33,6 +35,7 @@ Chaque push sur `main` redéploie le site. Les pages se renouvellent seules au b
 
 - **Chaque semaine** : la dernière exécution des deux workflows est verte ; le site n'affiche pas l'alerte « données plus actualisées ».
 - **Chaque mois** : crédits The Odds API restants (`select credits_remaining from sync_runs order by id desc limit 1`), qui doivent rester au-dessus de ~15 par jour restant ; taille de la base, très en dessous de 500 Mo.
+- **Chaque jour, ou en cas de doute** : requêtes API-Football consommées aujourd'hui, à garder sous 90 : `select sum(credits_used) from sync_runs where job='ingest-markets' and started_at >= current_date`.
 - **Tous les 2 mois** si le dépôt est public : GitHub coupe les tâches planifiées après 60 jours sans commit. Un e-mail prévient, et on les réactive dans *Actions*.
 
 ## Pannes courantes

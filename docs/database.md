@@ -27,7 +27,7 @@ Ensuite, remplir `.env.local` à partir de `.env.example`. Les scripts se connec
 | `matches` | rencontres ; `reference_bookmaker` = bookmaker sur lequel tous les mouvements affichés sont mesurés, `reference_seen_at` = dernière synchro où il proposait le marché ; scores pour l'évaluation future | ingestion |
 | `odds_snapshots` | une ligne par prix observé, jamais modifiée | ingestion |
 | `matches_analysis` | dernier état calculé par sélection, avec cote médiane du marché et statut de qualité ; `opening_odds`, `model_probability`, `confidence_score` restent `null` | analyse |
-| `tickets`, `ticket_selections` | combinés générés, avec la cote et l'heure d'observation au moment de la génération | générateur |
+| `tickets`, `ticket_selections` | combinés générés (un par palier de cote et par journée), avec la cote et l'heure d'observation au moment de la génération ; résultat par jambe et par ticket | générateur, résultats |
 | `user_favorites` | favoris des comptes, seulement si Supabase Auth est activé | navigateur |
 | `sync_runs` | journal des tâches : statut, erreur, crédits consommés et restants | scripts |
 
@@ -35,7 +35,10 @@ Ensuite, remplir `.env.local` à partir de `.env.example`. Les scripts se connec
 
 - `matches` : `football_data_id`, scores, `reference_bookmaker` ;
 - `matches_analysis` : `first_observed_odds`, `normalized_probability` et `observation_count`, distincts de `opening_odds`, qui reste vide ;
-- `ticket_selections` : `observed_at` et `rationale` ;
+- `ticket_selections` : `observed_at`, `rationale` et `result` (`won`, `lost`, `void`) ;
+- `matches` : `api_football_id` (unique) et `markets_bookmaker`, le bookmaker API-Football (préfixé `af:`) sur lequel les marchés du match sont mesurés ;
+- `tickets` : `match_day`, `featured`, `result`, `settled_at` ; `category` devient le palier de cote (`'5'`, `'10'`, ...) et non plus un libellé de risque, unique par `(match_day, category)` ;
+- `sync_runs.job` accepte `ingest-markets` ;
 - nouvelle table `sync_runs`, qui sert au contrôle des quotas (§9).
 
 ## Garanties portées par la base
@@ -53,7 +56,7 @@ Ensuite, remplir `.env.local` à partir de `.env.example`. Les scripts se connec
 | `authenticated` | lire, ajouter, supprimer **ses propres** favoris |
 | propriétaire de la base via `DATABASE_URL` (scripts, GitHub Actions) | tout. Cette chaîne ne doit **jamais** être exposée au navigateur |
 
-**Lecture par l'application** : `ui_matches(p_now)` et `ui_tickets(p_now)` renvoient en un seul appel ce qu'affichent les écrans : historique du bookmaker de référence, cote médiane, tickets actifs. Elles s'exécutent avec les droits de l'appelant (`security invoker`), donc la RLS s'applique. Elles sont testées en tant que rôle `anon`.
+**Lecture par l'application** : `ui_matches(p_now)` et `ui_tickets(p_now)` renvoient en un seul appel ce qu'affichent les écrans : historique du bookmaker de référence, cote médiane, tickets des 30 derniers jours (avec jambes, scores et résultats ; l'état en direct se déduit du statut des matchs). Elles s'exécutent avec les droits de l'appelant (`security invoker`), donc la RLS s'applique. Elles sont testées en tant que rôle `anon`.
 
 La sécurité tient en deux couches : les privilèges d'écriture par défaut de Supabase sont révoqués, puis les policies filtrent les lignes. `sync_runs` et `prune_old_data()` ne sont accessibles qu'au propriétaire de la base.
 
