@@ -142,4 +142,14 @@ describe("apiFootball", () => {
     ]);
     expect(await apiFootball("k".repeat(12), reply({ errors: [], response: [] }), 0).odds(7)).toBeNull();
   });
+
+  it("accepts numeric values in bets we do not use", async () => {
+    // Seen in production: e.g. exact-goals bets send `value: 1`.
+    const odds = { fixture: { id: 7 }, update: "2026-10-28T13:00:00+00:00", bookmakers: [{ name: "Bet365", bets: [
+      { id: 38, values: [{ value: 1, odd: 3.4 }] },
+      { id: 8, values: [{ value: "Yes", odd: "1.57" }, { value: "No", odd: "2.25" }] },
+    ] }] };
+    const got = await apiFootball("k".repeat(12), reply({ errors: [], response: [odds] }), 0).odds(7);
+    expect(got?.bookmakers[0].bets[0].values[0]).toEqual({ value: "1", odd: "3.4" });
+  });
 });

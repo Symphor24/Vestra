@@ -21,12 +21,14 @@ const Fixture = z.object({
   league: z.object({ id: z.number() }),
   teams: z.object({ home: z.object({ name: z.string() }), away: z.object({ name: z.string() }) }),
 });
+const text = z.union([z.string(), z.number()]).transform(String);
 const Odds = z.object({
   fixture: z.object({ id: z.number() }),
   update: z.string(),
   bookmakers: z.array(z.object({
     name: z.string(),
-    bets: z.array(z.object({ id: z.number(), values: z.array(z.object({ value: z.string(), odd: z.string() })) })),
+    // Some bets (exact goals…) send numbers; only strings are used downstream.
+    bets: z.array(z.object({ id: z.number(), values: z.array(z.object({ value: text, odd: text })) })),
   })),
 });
 
