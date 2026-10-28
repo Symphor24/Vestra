@@ -120,9 +120,9 @@ describe("ingestResults", () => {
 
 describe("settleTickets", () => {
   let db: PGlite;
-  const ticket = async (legs: [string, string, string][]) => {
+  const ticket = async (legs: [string, string, string][], matchDay: string | null = "2026-01-01") => {
     const [{ id }] = (await db.query<{ id: string }>(
-      "insert into public.tickets (title, category, total_odds, generated_at, methodology_version) values ('t', '5', 5, $1, 'v') returning id::text as id", [NOW.toISOString()],
+      "insert into public.tickets (title, category, total_odds, generated_at, methodology_version, match_day) values ('t', '5', 5, $1, 'v', $2) returning id::text as id", [NOW.toISOString(), matchDay],
     )).rows;
     for (const [i, [ext, market, pick]] of legs.entries()) {
       await db.query(
@@ -160,6 +160,13 @@ describe("settleTickets", () => {
     const id = await ticket([["e1", "totals_2.5", "over"], ["e2", "btts", "yes"]]);
     await settleTickets(db, NOW);
     expect(await state(id)).toMatchObject({ result: "won", status: "settled" });
+  });
+
+  it("leaves legacy tickets (no match_day) untouched", async () => {
+    await db.exec("update public.matches set status = 'finished', home_score = 2, away_score = 1");
+    const id = await ticket([["e1", "h2h", "home"]], null);
+    expect(await settleTickets(db, NOW)).toEqual({ legs: 0, tickets: 0 });
+    expect(await state(id)).toMatchObject({ result: null, status: "active" });
   });
 
   it("never touches a settled ticket", async () => {

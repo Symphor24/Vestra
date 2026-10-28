@@ -7,7 +7,8 @@ export async function settleTickets(db: Db, now: Date): Promise<{ legs: number; 
   const { rows } = await db.query<{ id: string; market_key: string; selection_key: string; status: string; home_score: number | null; away_score: number | null }>(
     `select s.id::text as id, s.market_key, s.selection_key, m.status, m.home_score, m.away_score
      from public.ticket_selections s join public.matches m on m.id = s.match_id
-     where s.result is null and m.status in ('finished', 'postponed', 'cancelled')`,
+     join public.tickets t on t.id = s.ticket_id
+     where t.match_day is not null and s.result is null and m.status in ('finished', 'postponed', 'cancelled')`,
   );
   let legs = 0;
   for (const r of rows) {
@@ -21,7 +22,7 @@ export async function settleTickets(db: Db, now: Date): Promise<{ legs: number; 
     await db.query<{ id: string; results: (string | null)[] }>(
       `select t.id::text as id, array_agg(s.result order by s.position) as results
        from public.tickets t join public.ticket_selections s on s.ticket_id = t.id
-       where t.status = 'active' group by t.id`,
+       where t.match_day is not null and t.status = 'active' group by t.id`,
     )
   ).rows.filter((t) => t.results.every((x) => x !== null));
   for (const t of open) {

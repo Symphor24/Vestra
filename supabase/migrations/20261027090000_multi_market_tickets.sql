@@ -1,5 +1,5 @@
 -- Multi-market accumulators: one ticket per odds tier and match day, with per-leg and per-ticket results.
--- `tickets` is empty in production, so no data migration.
+-- Production holds a few legacy tickets (risk-label categories, no match_day): left in place, never returned by ui_tickets nor settled.
 
 alter table public.matches
   add column api_football_id bigint unique,
@@ -22,7 +22,6 @@ alter table public.sync_runs drop constraint sync_runs_job_check;
 alter table public.sync_runs add constraint sync_runs_job_check
   check (job in ('ingest-odds', 'ingest-markets', 'ingest-results', 'analyze', 'generate-combos', 'prune'));
 
--- The numeric sort tolerates legacy labels until the old generator is replaced.
 -- 30-day history instead of active tickets only; the UI derives live state from matchStatus.
 create or replace function public.ui_tickets(p_now timestamptz default now())
 returns jsonb
@@ -56,7 +55,7 @@ as $$
       join public.teams h on h.id = m.home_team_id
       join public.teams a on a.id = m.away_team_id
       where s.ticket_id = t.id), '[]'::jsonb)
-  ) order by t.match_day desc nulls last, case when t.category ~ '^[0-9.]+$' then t.category::numeric end, t.category, t.generated_at desc), '[]'::jsonb)
+  ) order by t.match_day desc nulls last, t.category::numeric, t.generated_at desc), '[]'::jsonb)
   from public.tickets t
-  where t.generated_at >= p_now - interval '30 days';
+  where t.match_day is not null and t.generated_at >= p_now - interval '30 days';
 $$;

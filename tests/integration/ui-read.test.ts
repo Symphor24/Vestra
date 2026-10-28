@@ -100,9 +100,24 @@ describe("ui_tickets history", () => {
   });
 });
 
+describe("ui_tickets legacy rows", () => {
+  it("never returns a legacy ticket (no match_day), new tickets still parse", async () => {
+    await insertTicket();
+    await db.exec(`
+      insert into public.tickets (title, category, total_odds, generated_at, methodology_version)
+      values ('old', 'high', 12, '${T1.toISOString()}', '0.1.0');
+    `);
+    expect(parseTickets(await asAnon("ui_tickets", T1)).map((t) => t.tier)).toEqual([2]);
+  });
+});
+
 describe("parse", () => {
+  it("drops rows whose category is not a tier", () => {
+    expect(parseTickets([{ id: "t", category: "high" }])).toEqual([]);
+  });
+
   it("rejects malformed data instead of rendering it", () => {
     expect(() => parseMatches([{ id: "1" }])).toThrow();
-    expect(() => parseTickets([{ id: "t", category: "moderate", totalOdds: 0.5, generatedAt: "x", methodologyVersion: "1", legs: [] }])).toThrow();
+    expect(() => parseTickets([{ id: "t", category: "5", totalOdds: 0.5, generatedAt: "x", methodologyVersion: "1", legs: [] }])).toThrow();
   });
 });

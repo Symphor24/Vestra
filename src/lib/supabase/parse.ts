@@ -82,7 +82,9 @@ export function parseMatches(json: unknown): Match[] {
 }
 
 export function parseTickets(json: unknown): Ticket[] {
-  return z.array(TicketRow).parse(json).map(({ category, legs, ...t }) => ({
+  // Legacy rows (risk-label categories) are skipped before strict parsing.
+  const rows = (json as { category?: unknown }[]).filter((r) => (TIERS as readonly number[]).includes(Number(r.category)));
+  return z.array(TicketRow).parse(rows).map(({ category, legs, ...t }) => ({
     ...t,
     tier: category,
     legs: legs.map(({ home, away, matchStatus, ...l }) => ({
