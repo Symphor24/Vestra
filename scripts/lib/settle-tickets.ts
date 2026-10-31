@@ -22,9 +22,11 @@ export async function settleTickets(db: Db, now: Date): Promise<{ legs: number; 
     await db.query<{ id: string; results: (string | null)[] }>(
       `select t.id::text as id, array_agg(s.result order by s.position) as results
        from public.tickets t join public.ticket_selections s on s.ticket_id = t.id
-       where t.match_day is not null and t.status = 'active' group by t.id`,
+       where t.match_day is not null and t.status = 'active' group by t.id
+       having count(s.result) = count(*)`,
     )
-  ).rows.filter((t) => t.results.every((x) => x !== null));
+    // Filtered in SQL: postgres.js reads nulls inside text[] as the string "NULL".
+  ).rows;
   for (const t of open) {
     await db.query("update public.tickets set result = $2, status = 'settled', settled_at = $3 where id = $1", [
       t.id, ticketStatus(t.results as LegResult[]), now.toISOString(),
