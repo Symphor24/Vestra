@@ -49,3 +49,4 @@ references/
 
 # Agent workspaces (plans in progress)
 .superpowers/
+supabase/.temp/

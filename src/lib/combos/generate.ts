@@ -1,7 +1,7 @@
 import { normalizedProbabilities, selectionSignal } from "../odds/calc.ts";
 import { OUTCOMES, type Match, type Outcome } from "../types.ts";
 
-export const METHODOLOGY_VERSION = "1.0.0";
+export const METHODOLOGY_VERSION = "1.1.0";
 
 export const RULES = {
   /** Descriptive filter only: a shortening price is not evidence of value. */

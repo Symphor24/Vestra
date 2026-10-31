@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MarketKey } from "@/lib/combos/markets";
-import { buildTier, generateDay, tierBand, TIERS, type Selection, type Tier } from "@/lib/combos/tiers";
+import { buildTier, generateDay, MAX_LEGS, tierBand, TIERS, type Selection, type Tier } from "@/lib/combos/tiers";
 
 function sel(
   matchId: string,
@@ -59,17 +59,19 @@ function randomDay(seed: number, matches: number, perMatch: number, shareTeam = 
 }
 
 const product = (legs: Selection[], k: "odds" | "probability") => legs.reduce((p, l) => p * l[k], 1);
+// Search weight: probability, cut by 2.2 / odds above 2.20.
+const score = (legs: Selection[]) => legs.reduce((p, l) => p * l.probability * Math.min(1, 2.2 / l.odds), 1);
 
 // Exhaustive reference: same constraints and tie rule as the spec, written independently.
 function bruteForce(selections: Selection[], tier: Tier): number | null {
   const [lo, hi] = tierBand(tier);
   const byMatch = [...Map.groupBy(selections, (s) => s.matchId).values()];
-  const best = new Map<number, number>(); // legs → best probability
+  const best = new Map<number, number>(); // legs → best score
   const walk = (i: number, legs: Selection[]) => {
     if (i === byMatch.length) {
       const odds = product(legs, "odds");
       if (legs.length >= 2 && odds >= lo && odds <= hi) {
-        const p = product(legs, "probability");
+        const p = score(legs);
         if (p > (best.get(legs.length) ?? -1)) best.set(legs.length, p);
       }
       return;
@@ -130,7 +132,7 @@ describe("tier generator", () => {
         const expected = bruteForce(small, tier);
         const legs = buildTier(small, tier);
         if (expected === null) expect(legs).toBeNull();
-        else expect(product(legs!, "probability")).toBeCloseTo(expected, 9);
+        else expect(score(legs!)).toBeCloseTo(expected, 9);
       }
     }
   });
@@ -144,6 +146,23 @@ describe("tier generator", () => {
       sel("e", "h2h", "home", 1.7, 0.5887), // c+d+e: 4.913, 0.20403 (less than 1 % above)
     ];
     expect(buildTier(s, 5)!.map((l) => l.matchId)).toEqual(["a", "b"]);
+  });
+
+  it("reaches big tiers with many solid legs rather than a few long shots", () => {
+    // Fair-ish markets (6 % margin): per match a 2.00 pick and a 9.50 outsider.
+    const s = Array.from({ length: 14 }, (_, i) => [
+      sel(`m${String(i).padStart(2, "0")}`, "double_chance", "1X", 2, 1 / 2 / 1.06),
+      sel(`m${String(i).padStart(2, "0")}`, "h2h", "away", 9.5, 1 / 9.5 / 1.06),
+    ]).flat();
+    const legs = buildTier(s, 1000)!;
+    expect(legs.length).toBe(10); // 2^10 = 1024, where four 9.50 legs (8 145) or three (857) were as close
+    expect(legs.every((l) => l.odds === 2)).toBe(true);
+  });
+
+  it("never exceeds the leg cap", () => {
+    const s = Array.from({ length: 20 }, (_, i) => sel(`m${String(i).padStart(2, "0")}`, "h2h", "home", 1.5, 0.63));
+    expect(buildTier(s, 5000)).toBeNull(); // 1.5^15 ≈ 438: 21 legs would be needed
+    expect(buildTier(s, 500)!.length).toBeLessThanOrEqual(MAX_LEGS);
   });
 
   it("is deterministic", () => {

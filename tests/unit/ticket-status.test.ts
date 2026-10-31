@@ -11,7 +11,7 @@ const ticket = (legs: Ticket["legs"], result: Ticket["result"] = null): Ticket =
   id: "t", tier: 5, legs, totalOdds: 4, probability: 0.2, featured: false, result, matchDay: null, generatedAt: "", methodologyVersion: "2",
 });
 const live = (id: string, state: LiveMatch["state"], h: number, a: number, status = ""): LiveMatch => ({
-  id, league: "PL", kickoffAt: "", state, status, updatedAt: "", home: { name: "H", score: h }, away: { name: "A", score: a }, popular: false,
+  id, league: "PL", kickoffAt: "", state, status, updatedAt: "", home: { id: 1, name: "H", crest: null, score: h }, away: { id: 2, name: "A", crest: null, score: a }, popular: false,
 });
 const board = (...m: LiveMatch[]) => new Map(m.map((x) => [x.id, x]));
 

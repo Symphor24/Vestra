@@ -11,6 +11,10 @@ export interface Team {
   id: string;
   name: string;
   shortName: string;
+  /** football-data.org team id, once learned (live data only). */
+  fdId?: string | null;
+  /** Club crest URL from football-data.org (live data only). */
+  crest?: string | null;
 }
 
 export interface Competition {
@@ -44,6 +48,8 @@ export interface Match {
   confirmedAt?: string | null;
   /** Median latest price across all bookmakers, to spot an off-market reference price (live data only). */
   consensus?: Partial<Record<Outcome, number>>;
+  /** football-data.org match id, linked about two days before kickoff (live data only). */
+  footballDataId?: string | null;
 }
 
 export interface Leg {

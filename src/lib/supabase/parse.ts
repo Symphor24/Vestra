@@ -16,13 +16,16 @@ const ts = z.string().transform((s, ctx) => {
 });
 const odds = z.number().gt(1);
 const team = z.object({ id: z.string(), name: z.string(), shortName: z.string() });
+// Optional: the app may deploy before the migration that adds them.
+const matchTeam = team.extend({ fdId: z.string().nullable().optional(), crest: z.string().nullable().optional() });
 const point = z.object({ observedAt: ts, odds });
 
 const MatchRow = z.object({
   id: z.string(),
   competition: z.object({ id: z.string(), name: z.string(), country: z.string() }),
-  home: team,
-  away: team,
+  home: matchTeam,
+  away: matchTeam,
+  footballDataId: z.string().nullable().optional(),
   kickoffAt: ts,
   status: z.enum(["scheduled", "finished"]),
   homeScore: z.number().int().nullable(),

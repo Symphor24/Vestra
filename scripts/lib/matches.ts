@@ -15,8 +15,8 @@ export async function loadMatches(db: Db, now: Date): Promise<LoadedMatch[]> {
     await db.query<Record<string, unknown>>(
       `select m.id::text as id, m.kickoff_at, m.status, m.last_synced_at, m.reference_bookmaker, m.reference_seen_at,
          c.id::text as c_id, c.name as c_name, c.country as c_country,
-         h.id::text as h_id, h.name as h_name, h.short_name as h_short,
-         a.id::text as a_id, a.name as a_name, a.short_name as a_short
+         m.football_data_id, h.id::text as h_id, h.name as h_name, h.short_name as h_short, h.external_id as h_fd, h.crest_url as h_crest,
+         a.id::text as a_id, a.name as a_name, a.short_name as a_short, a.external_id as a_fd, a.crest_url as a_crest
        from public.matches m
        join public.competitions c on c.id = m.competition_id and c.is_enabled
        join public.teams h on h.id = m.home_team_id
@@ -55,8 +55,9 @@ export async function loadMatches(db: Db, now: Date): Promise<LoadedMatch[]> {
     return {
       id: String(m.id),
       competition: { id: String(m.c_id), name: String(m.c_name), country: String(m.c_country) },
-      home: { id: String(m.h_id), name: String(m.h_name), shortName: String(m.h_short) },
-      away: { id: String(m.a_id), name: String(m.a_name), shortName: String(m.a_short) },
+      home: { id: String(m.h_id), name: String(m.h_name), shortName: String(m.h_short), fdId: m.h_fd as string | null, crest: m.h_crest as string | null },
+      away: { id: String(m.a_id), name: String(m.a_name), shortName: String(m.a_short), fdId: m.a_fd as string | null, crest: m.a_crest as string | null },
+      footballDataId: m.football_data_id as string | null,
       kickoffAt: iso(m.kickoff_at),
       status: "scheduled",
       lastSyncedAt: m.last_synced_at ? iso(m.last_synced_at) : now.toISOString(),

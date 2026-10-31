@@ -11,6 +11,18 @@ const TIE_RATIO = 0.99; // spec §3: probabilities less than 1 % apart count as 
 // Search granularity: states are grouped by log(total odds) in slots this wide, keeping the best few per slot.
 const SLOT_WIDTH = 0.02;
 const PER_SLOT = 4;
+/** Big tiers are reached by stacking many solid legs rather than a few long shots. */
+export const MAX_LEGS = 15;
+/** Legs priced above this are penalised in the search (not in the displayed probability). */
+export const SAFE_MAX_ODDS = 2.2;
+
+/**
+ * Ranking weight of a leg: its probability, scaled down by SAFE_MAX_ODDS / odds above that price, so a
+ * 9.50 outsider counts for less than its market probability (long shots also carry most of the margin).
+ */
+export function legScore(s: Selection): number {
+  return s.probability * Math.min(1, SAFE_MAX_ODDS / s.odds);
+}
 
 export interface Selection {
   matchId: string;
@@ -19,7 +31,10 @@ export interface Selection {
   market: MarketKey;
   pick: string;
   odds: number;
+  /** Estimated probability: the margin-free market one, blended with the stats model when available. */
   probability: number;
+  marketProbability?: number;
+  modelProbability?: number;
   observedAt: string;
   dropped: boolean;
   label: string;
@@ -45,6 +60,8 @@ interface State {
   count: number;
   odds: number;
   probability: number;
+  /** What the search maximises: product of legScore. */
+  score: number;
   contested: number; // bits of the team-sharing matches used
 }
 
@@ -77,7 +94,7 @@ function canonicalMatches(selections: Selection[]): Selection[][] {
 }
 
 /**
- * Most probable accumulator per tier, from one shared search: a cell's content only depends on the
+ * Best-scoring accumulator per tier, from one shared search: a cell's content only depends on the
  * cells below it, so searching every tier at once gives each tier the same result as its own search.
  */
 function searchTiers(selections: Selection[], tiers: readonly Tier[]): Map<Tier, Selection[]> {
@@ -114,12 +131,12 @@ function searchTiers(selections: Selection[], tiers: readonly Tier[]): Map<Tier,
     const hit = bands.find(({ band: [lo, hi] }) => st.odds >= lo && st.odds <= hi);
     if (!hit) return;
     const prev = hit.byLegs.get(st.count);
-    if (!prev || st.probability > prev.probability) hit.byLegs.set(st.count, st);
+    if (!prev || st.score > prev.score) hit.byLegs.set(st.count, st);
   };
 
-  let states: State[] = [{ leg: null, parent: null, count: 0, odds: 1, probability: 1, contested: 0 }];
+  let states: State[] = [{ leg: null, parent: null, count: 0, odds: 1, probability: 1, score: 1, contested: 0 }];
   matches.forEach((match, mi) => {
-    // Each cell (odds slot, team-sharing matches used) keeps its PER_SLOT most probable states, sorted
+    // Each cell (odds slot, team-sharing matches used) keeps its PER_SLOT best-scoring states, sorted
     // desc; ties keep the first (canonical) one.
     const tables = new Map<number, State[][]>();
     const offer = (st: State) => {
@@ -127,7 +144,7 @@ function searchTiers(selections: Selection[], tiers: readonly Tier[]): Map<Tier,
       if (!table) tables.set(st.contested, (table = Array.from({ length: slots }, () => [])));
       const cell = table[Math.min(slots - 1, Math.floor(Math.log(st.odds) / SLOT_WIDTH))];
       let i = cell.length;
-      while (i > 0 && cell[i - 1].probability < st.probability) i--;
+      while (i > 0 && cell[i - 1].score < st.score) i--;
       if (i < PER_SLOT) {
         cell.splice(i, 0, st);
         if (cell.length > PER_SLOT) cell.pop();
@@ -135,7 +152,7 @@ function searchTiers(selections: Selection[], tiers: readonly Tier[]): Map<Tier,
     };
     for (const st of states) {
       offer(st); // skip this match
-      if (conflicts[mi] && usesMatch(st, conflicts[mi])) continue;
+      if (st.count >= MAX_LEGS || (conflicts[mi] && usesMatch(st, conflicts[mi]))) continue;
       for (const s of match) {
         const odds = st.odds * s.odds;
         if (odds > maxHi) continue;
@@ -145,6 +162,7 @@ function searchTiers(selections: Selection[], tiers: readonly Tier[]): Map<Tier,
           count: st.count + 1,
           odds,
           probability: st.probability * s.probability,
+          score: st.score * legScore(s),
           contested: st.contested | contestedBit[mi],
         };
         if (child.count >= 2) record(child);
@@ -157,14 +175,14 @@ function searchTiers(selections: Selection[], tiers: readonly Tier[]): Map<Tier,
   const result = new Map<Tier, Selection[]>();
   for (const { tier, byLegs } of bands) {
     if (byLegs.size === 0) continue;
-    const max = Math.max(...[...byLegs.values()].map((s) => s.probability));
-    const fewest = Math.min(...[...byLegs].filter(([, s]) => s.probability >= max * TIE_RATIO).map(([n]) => n));
+    const max = Math.max(...[...byLegs.values()].map((s) => s.score));
+    const fewest = Math.min(...[...byLegs].filter(([, s]) => s.score >= max * TIE_RATIO).map(([n]) => n));
     result.set(tier, legsOf(byLegs.get(fewest)!));
   }
   return result;
 }
 
-/** Most probable accumulator whose total odds fall in the tier's band, or null if none exists. */
+/** Best-scoring accumulator whose total odds fall in the tier's band, or null if none exists. */
 export function buildTier(selections: Selection[], tier: Tier): Selection[] | null {
   return searchTiers(selections, [tier]).get(tier) ?? null;
 }

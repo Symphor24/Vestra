@@ -138,6 +138,27 @@ describe("combos", () => {
     expect(await ticketRows()).toHaveLength(r.created);
   });
 
+  it("blends season statistics into leg probabilities, and reports a league it could not fetch", async () => {
+    await db.exec("update public.teams set external_id = id::text");
+    const ids = (await db.query<{ id: number }>("select id from public.teams order by id")).rows.map((r) => r.id);
+    const team = (id: number) => ({ id, name: null, shortName: null });
+    // Round robin: every team plays every other once at home, with varied scores.
+    const season = ids.flatMap((h, i) =>
+      ids.filter((a) => a !== h).map((a, j) => ({
+        id: i * 100 + j, utcDate: "2026-09-01T15:00:00Z", status: "FINISHED", homeTeam: team(h), awayTeam: team(a),
+        score: { fullTime: { home: (i + j) % 4, away: (i * j) % 3 } },
+      })),
+    );
+    const r = await generateCombos(db, GENERATE_AT, async (code) => {
+      if (code !== "PL") throw new Error("indisponible");
+      return season;
+    });
+    expect(r.created).toBeGreaterThan(0);
+    expect(r.statsErrors).toEqual(["PD : indisponible", "SA : indisponible", "BL1 : indisponible", "FL1 : indisponible"]);
+    const rationales = (await db.query<{ rationale: string }>("select rationale from public.ticket_selections")).rows.map((x) => x.rationale);
+    expect(rationales.every((x) => x.includes("statistiques de la saison"))).toBe(true);
+  });
+
   it("ignores a same-named Odds API h2h row", async () => {
     const legs = async () =>
       (await db.query(

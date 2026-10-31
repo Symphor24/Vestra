@@ -11,7 +11,9 @@ import { OUTCOMES } from "@/lib/types";
 import { card, Freshness, OddsDelta, TeamBadge } from "@/components/ui/bits";
 import { Field } from "@/components/ui/pitch";
 import { Time } from "@/components/ui/time";
-import { DetailSkeleton } from "@/components/ui/skeletons";
+import { DetailSkeleton, ListSkeleton } from "@/components/ui/skeletons";
+import { leagueCode } from "@/lib/live";
+import { MatchStats } from "@/components/matches/match-stats";
 import { AddToSlip, FollowMatch, FollowTeam } from "@/components/odds/slip-buttons";
 import { OddsHistory } from "@/components/matches/odds-history";
 
@@ -40,6 +42,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
   const latest = signals.find((s) => s.checkedAt);
   const fav = favoriteIndex(signals.map((s) => s.current?.odds));
   const open = m.status === "scheduled";
+  const code = leagueCode(m.competition.name);
 
   return (
     <article className="-mx-4 -mt-5 sm:mx-0 sm:mt-0">
@@ -185,16 +188,27 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
             })}
           </ul>
           <p className="mt-4 text-xs leading-relaxed text-muted">
-            Une baisse de cote peut venir de nouvelles informations, d&apos;un ajustement du modèle du bookmaker, d&apos;une faible liquidité ou d&apos;un changement de marge. Elle ne prouve pas l&apos;existence d&apos;« argent avisé ». Probabilité modèle et score de confiance : non calculés, aucun modèle n&apos;est encore validé.
+            Une baisse de cote peut venir de nouvelles informations, d&apos;un ajustement du modèle du bookmaker, d&apos;une faible liquidité ou d&apos;un changement de marge. Elle ne prouve pas l&apos;existence d&apos;« argent avisé ». Le modèle statistique (buts attendus, ci-dessous) n&apos;est pas encore validé sur un historique ; aucun score de confiance n&apos;est calculé.
           </p>
         </section>
 
-        <section className={`${card} night p-4 sm:p-5`} aria-labelledby="stats-title">
-          <h2 id="stats-title" className="font-semibold">Statistiques</h2>
-          <p className="mt-1 text-sm text-muted">
-            Aucune statistique d&apos;équipe n&apos;est encore connectée. Le classement et la forme récente viendront de football-data.org.
-          </p>
-        </section>
+        {code && m.home.fdId && m.away.fdId ? (
+          <Suspense fallback={<ListSkeleton rows={3} night />}>
+            <MatchStats
+              code={code}
+              home={{ fdId: Number(m.home.fdId), name: m.home.shortName }}
+              away={{ fdId: Number(m.away.fdId), name: m.away.shortName }}
+              fdMatchId={m.footballDataId ?? null}
+            />
+          </Suspense>
+        ) : (
+          <section className={`${card} night p-4 sm:p-5`} aria-labelledby="stats-title">
+            <h2 id="stats-title" className="font-semibold">Statistiques</h2>
+            <p className="mt-1 text-sm text-muted">
+              Les statistiques apparaissent environ deux jours avant le match, une fois les équipes reliées à football-data.org.
+            </p>
+          </section>
+        )}
 
         <p className="pb-2 text-center text-xs text-muted">
           Dernière synchronisation <Time iso={m.lastSyncedAt} mode="relative" />

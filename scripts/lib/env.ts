@@ -14,6 +14,8 @@ export const ResultsEnv = DbEnv.extend({
   FOOTBALL_DATA_API_KEY: z.string().min(10),
 });
 
+export const CombosEnv = DbEnv.extend({ FOOTBALL_DATA_API_KEY: z.string().min(10).optional() });
+
 export const MarketsEnv = DbEnv.extend({ API_FOOTBALL_KEY: z.string().min(10) });
 
 export function loadEnv<S extends z.ZodType>(schema: S): z.infer<S> {

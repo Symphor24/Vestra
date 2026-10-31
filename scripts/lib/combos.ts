@@ -1,27 +1,49 @@
 import { generateDay, type TierTicket } from "../../src/lib/combos/tiers.ts";
 import { METHODOLOGY_VERSION } from "../../src/lib/combos/generate.ts";
+import { toResults, type Result } from "../../src/lib/stats.ts";
 import type { Db } from "./db.ts";
+import type { FetchFdSeason } from "./football-data.ts";
 import { loadSelections } from "./selections.ts";
 
 export interface CombosResult {
   day: string;
   created: number;
   skipped: "before-13h" | "already-generated" | null;
+  /** Leagues whose season could not be fetched: their legs use market probabilities only. */
+  statsErrors?: string[];
 }
 
 const GENERATION_HOUR_UTC = 13;
 
-/** Tomorrow's tickets, built once from the day's markets and never touched again. */
-export async function generateCombos(db: Db, now: Date): Promise<CombosResult> {
+/** Tomorrow's tickets, built once from the day's markets (and season stats if given) and never touched again. */
+export async function generateCombos(db: Db, now: Date, fetchSeason?: FetchFdSeason): Promise<CombosResult> {
   const day = new Date(now.getTime() + 86_400_000).toISOString().slice(0, 10);
   if (now.getUTCHours() < GENERATION_HOUR_UTC) return { day, created: 0, skipped: "before-13h" };
   const existing = await db.query("select 1 from public.tickets where match_day = $1::date limit 1", [day]);
   if (existing.rows.length) return { day, created: 0, skipped: "already-generated" };
 
-  const tickets = generateDay(await loadSelections(db, day));
-  if (!tickets.length) return { day, created: 0, skipped: null };
+  const { seasons, statsErrors } = fetchSeason ? await loadSeasons(db, fetchSeason) : { seasons: undefined, statsErrors: undefined };
+  const tickets = generateDay(await loadSelections(db, day, seasons));
+  if (!tickets.length) return { day, created: 0, skipped: null, statsErrors };
   const created = await insertDay(db, tickets, day, now);
-  return { day, created, skipped: created ? null : "already-generated" };
+  return { day, created, skipped: created ? null : "already-generated", statsErrors };
+}
+
+/** One call per enabled league. A failing league is reported, not fatal: the market alone still prices it. */
+async function loadSeasons(db: Db, fetchSeason: FetchFdSeason) {
+  const codes = (
+    await db.query<{ code: string }>("select football_data_code as code from public.competitions where is_enabled and football_data_code is not null order by id")
+  ).rows.map((r) => r.code);
+  const seasons = new Map<string, Result[]>();
+  const statsErrors: string[] = [];
+  for (const code of codes) {
+    try {
+      seasons.set(code, toResults(await fetchSeason(code)));
+    } catch (e) {
+      statsErrors.push(`${code} : ${(e as Error).message}`);
+    }
+  }
+  return { seasons, statsErrors };
 }
 
 /**
@@ -33,7 +55,7 @@ async function insertDay(db: Db, tickets: TierTicket[], day: string, now: Date):
     title: `Combiné ~${t.tier}`, category: String(t.tier), total_odds: t.totalOdds, probability: t.probability, featured: t.featured,
     legs: t.legs.map((l, i) => ({
       position: i + 1, match_id: l.matchId, market: l.market, pick: l.pick, odds: l.odds, observed_at: l.observedAt,
-      rationale: `Cote ${l.odds.toFixed(2)}, probabilité selon le marché ${(l.probability * 100).toFixed(1)} %${l.dropped ? ", cote en baisse" : ""}`,
+      rationale: `Cote ${l.odds.toFixed(2)}, ${rationaleProbability(l)}${l.dropped ? ", cote en baisse" : ""}`,
     })),
   }));
   // `$1::text::jsonb`, not `$1::jsonb`: the postgres driver JSON-encodes jsonb params a second time.
@@ -55,4 +77,11 @@ async function insertDay(db: Db, tickets: TierTicket[], day: string, now: Date):
     [JSON.stringify(payload), day, now.toISOString(), METHODOLOGY_VERSION],
   );
   return (rows[0] as { n: number }).n;
+}
+
+const pct = (p: number) => `${(p * 100).toFixed(1)} %`;
+
+function rationaleProbability(l: TierTicket["legs"][number]): string {
+  if (l.modelProbability === undefined) return `probabilité selon le marché ${pct(l.probability)}`;
+  return `probabilité estimée ${pct(l.probability)} (marché ${pct(l.marketProbability!)}, statistiques de la saison ${pct(l.modelProbability)})`;
 }

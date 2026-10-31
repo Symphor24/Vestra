@@ -15,10 +15,15 @@ export const btn = {
 
 export const card = "rounded-card border border-line bg-surface";
 
-/** Initials stand in for crests until a licensed crest source is wired. */
-export function TeamBadge({ team, size = "md", onHero = false }: { team: Team; size?: "sm" | "md" | "lg"; onHero?: boolean }) {
+/** The club crest from football-data.org when known, else the team's initials. */
+export function TeamBadge({ team, size = "md", onHero = false }: { team: Pick<Team, "shortName" | "crest">; size?: "sm" | "md" | "lg"; onHero?: boolean }) {
   const initials = team.shortName.replace(/[^A-Za-zÀ-ÿ ]/g, "").split(" ").map((w) => w[0]).join("").slice(0, 3).toUpperCase();
   const s = { sm: "size-7 text-[10px]", md: "size-9 text-[11px]", lg: "size-14 text-sm" }[size];
+  if (team.crest)
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- small remote crests (PNG/SVG): no resizing to gain
+      <img src={team.crest} alt="" aria-hidden="true" loading="lazy" className={`${s} shrink-0 object-contain`} />
+    );
   return (
     <span
       aria-hidden="true"

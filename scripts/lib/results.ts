@@ -135,6 +135,7 @@ async function link(db: Db, p: Pending, f: FdMatch, out: ResultsOutcome) {
 async function learnTeams(db: Db, p: Pending, f: FdMatch) {
   // Learn provider ids (and a shorter display name) so the next matches are matched exactly.
   for (const [ours, theirs] of [[p.home, f.homeTeam], [p.away, f.awayTeam]] as const) {
+    if (theirs.crest) await db.query("update public.teams set crest_url = $2 where id = $1 and crest_url is distinct from $2", [ours.id, theirs.crest]);
     if (ours.external_id || theirs.id === null) continue;
     await db.query(
       `update public.teams set external_id = $2,

@@ -1,15 +1,22 @@
 import { MARKET_PICKS, marketProbabilities, pickLabel, type MarketKey } from "../../src/lib/combos/markets.ts";
 import type { Selection } from "../../src/lib/combos/tiers.ts";
 import { matchLabel } from "../../src/lib/formatting.ts";
+import { blend, expectedGoals, modelProbabilities, type Result } from "../../src/lib/stats.ts";
 import type { Db } from "./db.ts";
 
-/** Every complete market of the day's scheduled matches, priced by the match's markets bookmaker. */
-export async function loadSelections(db: Db, day: string): Promise<Selection[]> {
+/**
+ * Every complete market of the day's scheduled matches, priced by the match's markets bookmaker.
+ * With `seasons` (finished results per football-data competition code), each probability is blended
+ * with the Poisson model of the two teams' season; matches without enough data keep the market's.
+ */
+export async function loadSelections(db: Db, day: string, seasons = new Map<string, Result[]>()): Promise<Selection[]> {
   const matches = (
-    await db.query<{ id: string; kickoff: string; home_id: string; home: string; away_id: string; away: string; bookmaker: string }>(
+    await db.query<{ id: string; kickoff: string; home_id: string; home: string; away_id: string; away: string; bookmaker: string; code: string | null; home_fd: string | null; away_fd: string | null }>(
       `select m.id::text as id, m.kickoff_at as kickoff, h.id::text as home_id, h.name as home,
-         a.id::text as away_id, a.name as away, m.markets_bookmaker as bookmaker
+         a.id::text as away_id, a.name as away, m.markets_bookmaker as bookmaker,
+         c.football_data_code as code, h.external_id as home_fd, a.external_id as away_fd
        from public.matches m
+       join public.competitions c on c.id = m.competition_id
        join public.teams h on h.id = m.home_team_id
        join public.teams a on a.id = m.away_team_id
        where m.status = 'scheduled' and m.markets_bookmaker is not null
@@ -39,6 +46,9 @@ export async function loadSelections(db: Db, day: string): Promise<Selection[]> 
 
   const out: Selection[] = [];
   for (const m of matches) {
+    const season = m.code ? seasons.get(m.code) : undefined;
+    const xg = season && m.home_fd && m.away_fd ? expectedGoals(season, Number(m.home_fd), Number(m.away_fd)) : null;
+    const model = xg && modelProbabilities(xg);
     for (const market of Object.keys(MARKET_PICKS) as MarketKey[]) {
       const rows = MARKET_PICKS[market].map((pick) => history.get(`${m.id}|${market}|${pick}`));
       if (rows.some((r) => !r)) continue;
@@ -46,6 +56,7 @@ export async function loadSelections(db: Db, day: string): Promise<Selection[]> 
       if (!probs) continue;
       MARKET_PICKS[market].forEach((pick, i) => {
         const r = rows[i]!;
+        const modelProbability = model?.[market][pick];
         out.push({
           matchId: m.id,
           teamIds: [m.home_id, m.away_id],
@@ -53,7 +64,9 @@ export async function loadSelections(db: Db, day: string): Promise<Selection[]> 
           market,
           pick,
           odds: r.last,
-          probability: probs[pick],
+          probability: blend(probs[pick], modelProbability),
+          marketProbability: probs[pick],
+          modelProbability,
           observedAt: new Date(r.observedAt).toISOString(),
           dropped: r.last < r.first,
           label: pickLabel(market, pick, m.home, m.away),

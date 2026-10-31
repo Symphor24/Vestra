@@ -1,5 +1,6 @@
 import { cacheLife } from "next/cache";
 import { z } from "zod";
+import { toResults, type Result } from "@/lib/stats";
 
 // Live scores straight from football-data.org (server-side key, never sent to the browser).
 // One call covers the 5 leagues; the cache keeps us far below the free plan's 10 calls/minute.
@@ -36,7 +37,7 @@ const STATE: Record<string, LiveState> = {
   CANCELLED: "off",
 };
 
-const fdTeam = z.object({ id: z.number(), name: z.string().nullable(), shortName: z.string().nullable() });
+const fdTeam = z.object({ id: z.number(), name: z.string().nullable(), shortName: z.string().nullable(), crest: z.string().nullable().optional() });
 const FdResponse = z.object({
   matches: z.array(
     z.object({
@@ -52,6 +53,14 @@ const FdResponse = z.object({
   ),
 });
 
+export interface LiveTeam {
+  /** football-data.org team id. */
+  id: number;
+  name: string;
+  crest: string | null;
+  score: number | null;
+}
+
 export interface LiveMatch {
   id: string;
   league: string;
@@ -60,8 +69,8 @@ export interface LiveMatch {
   /** Raw provider status, shown when `state` is "off" (reporté, suspendu…). */
   status: string;
   updatedAt: string;
-  home: { name: string; score: number | null };
-  away: { name: string; score: number | null };
+  home: LiveTeam;
+  away: LiveTeam;
   popular: boolean;
 }
 
@@ -87,8 +96,8 @@ export function buildBoard(json: unknown, fetchedAt: string): LiveBoard {
       state: STATE[m.status] ?? "off",
       status: m.status,
       updatedAt: m.lastUpdated,
-      home: { name: m.homeTeam.shortName ?? m.homeTeam.name ?? "?", score: m.score.fullTime.home },
-      away: { name: m.awayTeam.shortName ?? m.awayTeam.name ?? "?", score: m.score.fullTime.away },
+      home: { id: m.homeTeam.id, name: m.homeTeam.shortName ?? m.homeTeam.name ?? "?", crest: m.homeTeam.crest ?? null, score: m.score.fullTime.home },
+      away: { id: m.awayTeam.id, name: m.awayTeam.shortName ?? m.awayTeam.name ?? "?", crest: m.awayTeam.crest ?? null, score: m.score.fullTime.away },
       popular: POPULAR_TEAM_IDS.has(m.homeTeam.id) || POPULAR_TEAM_IDS.has(m.awayTeam.id),
     }))
     .sort(byInterest);
@@ -102,21 +111,72 @@ export function buildBoard(json: unknown, fetchedAt: string): LiveBoard {
   };
 }
 
+async function fdGet(path: string): Promise<unknown> {
+  const res = await fetch(`https://api.football-data.org/v4/${path}`, {
+    headers: { "X-Auth-Token": process.env.FOOTBALL_DATA_API_KEY! },
+    signal: AbortSignal.timeout(8_000),
+  });
+  if (!res.ok) throw new Error(`football-data ${res.status}`);
+  return res.json();
+}
+
 /** Today's matches (UTC day), cached one minute. Null when the key is missing or the provider fails. */
 export async function getLiveBoard(): Promise<LiveBoard | null> {
   "use cache";
   cacheLife({ stale: 30, revalidate: 60, expire: 300 });
-  const key = process.env.FOOTBALL_DATA_API_KEY;
-  if (!key) return null;
+  if (!process.env.FOOTBALL_DATA_API_KEY) return null;
   try {
-    const res = await fetch(`https://api.football-data.org/v4/matches?competitions=${Object.keys(LEAGUES).join(",")}`, {
-      headers: { "X-Auth-Token": key },
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (!res.ok) throw new Error(`football-data ${res.status}`);
-    return buildBoard(await res.json(), new Date().toISOString());
+    return buildBoard(await fdGet(`matches?competitions=${Object.keys(LEAGUES).join(",")}`), new Date().toISOString());
   } catch (e) {
     console.error("[live]", e);
     return null;
   }
+}
+
+/** football-data code of a league, from the name shared with seed.sql. */
+export const leagueCode = (name: string) => Object.keys(LEAGUES).find((c) => LEAGUES[c] === name) ?? null;
+
+const fdResult = z.object({
+  utcDate: z.string(),
+  status: z.string(),
+  homeTeam: fdTeam.extend({ id: z.number().nullable() }),
+  awayTeam: fdTeam.extend({ id: z.number().nullable() }),
+  score: z.object({ fullTime: z.object({ home: z.number().nullable(), away: z.number().nullable() }) }),
+});
+const FdResults = z.object({ matches: z.array(fdResult) });
+
+// Cached functions throw on failure, so an outage is never cached; the wrappers turn it into null.
+async function seasonResults(code: string) {
+  "use cache";
+  cacheLife("hours");
+  return toResults(FdResults.parse(await fdGet(`competitions/${encodeURIComponent(code)}/matches?status=FINISHED`)).matches);
+}
+
+async function headToHead(fdMatchId: string) {
+  "use cache";
+  cacheLife("days");
+  return FdResults.parse(await fdGet(`matches/${encodeURIComponent(fdMatchId)}/head2head?limit=10`))
+    .matches.filter((m) => m.status === "FINISHED")
+    .map((m) => ({
+      utcDate: m.utcDate,
+      home: m.homeTeam.shortName ?? m.homeTeam.name ?? "?",
+      away: m.awayTeam.shortName ?? m.awayTeam.name ?? "?",
+      homeGoals: m.score.fullTime.home,
+      awayGoals: m.score.fullTime.away,
+    }))
+    .sort((a, b) => b.utcDate.localeCompare(a.utcDate));
+}
+
+export type HeadToHead = Awaited<ReturnType<typeof headToHead>>;
+
+/** Finished matches of the league's current season (one call per league and hour), or null. */
+export async function getSeasonResults(code: string): Promise<Result[] | null> {
+  if (!process.env.FOOTBALL_DATA_API_KEY) return null;
+  return seasonResults(code).catch((e) => (console.error("[stats]", e), null));
+}
+
+/** Last meetings of the two teams, all competitions, most recent first; null when unavailable. */
+export async function getHeadToHead(fdMatchId: string): Promise<HeadToHead | null> {
+  if (!process.env.FOOTBALL_DATA_API_KEY) return null;
+  return headToHead(fdMatchId).catch((e) => (console.error("[stats]", e), null));
 }
