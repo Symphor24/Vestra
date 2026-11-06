@@ -43,7 +43,7 @@ En cas d'ambiguïté, le match est **signalé, jamais deviné** (`unmatched` dan
 
 Les combinés multi-marchés ont besoin de Double chance, Plus/Moins 1,5 / 2,5 / 3,5 buts et Les deux équipes marquent, que The Odds API n'offre pas dans notre forfait. Ils viennent d'API-Football (`API_FOOTBALL_KEY`), pour les matchs de **demain** seulement.
 
-- **Fenêtres** : le script décide lui-même s'il travaille. Il agit entre 07:00 et 08:59 UTC (lancement de 07:15) et entre 13:00 et 14:59 UTC (lancement de 13:15), donc deux observations par jour. Le lancement de 18:15 ne fait rien.
+- **Fréquence** : le script agit à chaque lancement, sans fenêtre horaire, car GitHub démarre souvent les crons avec plusieurs heures de retard (ou les saute). Seul le budget limite le nombre d'appels.
 - **Budget** : 90 requêtes par jour au plus, comptées dans `sync_runs` (job `ingest-markets`, colonne `credits_used`). Le script s'arrête avant tout appel qui dépasserait le budget.
 - **Rattachement** : chaque match de la base est lié à une rencontre API-Football (`matches.api_football_id`) par ligue, coup d'envoi et équipes. En cas d'ambiguïté, le match est signalé, jamais deviné.
 - **Bookmaker de référence** : choisi une fois par match (`matches.markets_bookmaker`) et conservé ensuite, pour que les mouvements restent comparables. Bet365 s'il propose tous les marchés, sinon le bookmaker qui en couvre le plus (ordre alphabétique en cas d'égalité). Dans `odds_snapshots`, ces bookmakers sont préfixés `af:` (par exemple `af:bet365`) pour ne jamais se mélanger à ceux de The Odds API.
@@ -65,7 +65,7 @@ Pour chaque issue des matchs à venir, une ligne dans `matches_analysis` (mise �
 ## Combinés (`scripts/generate-combos.ts`)
 
 Le générateur est celui de l'interface (`src/lib/combos/generate.ts`), appliqué aux données de la base.
-- **Une journée à la fois, figée** : les combinés de demain sont générés à partir de 13:00 UTC la veille (donc au lancement de 13:15), une seule fois par jour. Une fois insérés, ils ne changent plus (`tickets.match_day`).
+- **Une journée à la fois, figée** : les combinés de demain sont générés à partir de 13:00 UTC la veille (au premier lancement qui trouve des cotes), une seule fois par jour. Une fois insérés, ils ne changent plus (`tickets.match_day`).
 - **Un combiné par palier de cote** (5, 10, ... : `tickets.category`), unique par jour et par palier. Un combiné est « à la une » (`featured`) pour les deux meilleurs de la journée (et le troisième s'il est proche).
 - **Sélections admissibles** : marchés de `ingest-markets` (Double chance, Plus/Moins, Les deux équipes marquent) sur le bookmaker de référence du match, une seule sélection par match.
 - **Corrélation** : deux matchs de la même équipe ne sont jamais combinés. Les autres corrélations ne sont pas évaluées, et l'interface le dit.
@@ -80,7 +80,7 @@ npm run ingest               # coûte environ 5 crédits
 npm run analyze
 npm run combos
 npm run results              # nécessite FOOTBALL_DATA_API_KEY
-npm run markets              # nécessite API_FOOTBALL_KEY ; n'agit que dans les fenêtres 07:00 et 13:00 UTC
+npm run markets              # nécessite API_FOOTBALL_KEY ; coûte 1 requête + 1 par match de demain
 npm run pipeline             # les cinq à la suite
 ```
 

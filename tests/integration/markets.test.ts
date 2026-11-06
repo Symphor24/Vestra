@@ -97,11 +97,11 @@ describe("ingestMarkets", () => {
     expect(await count("select count(*) n from odds_snapshots where bookmaker = 'af:bet365'")).toBe(0);
   });
 
-  it("does nothing outside the two windows", async () => {
+  it("still fetches when GitHub starts the run hours late", async () => {
     const { af, calls } = fakeAf();
     const r = await ingestMarkets(db, af, new Date("2026-10-25T18:20:00Z"));
-    expect(r.requests).toBe(0);
-    expect(calls).toEqual({ fixtures: 0, odds: 0 });
+    expect(r.linked).toBe(5);
+    expect(calls.odds).toBe(5);
   });
 });
 

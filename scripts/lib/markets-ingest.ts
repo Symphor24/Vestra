@@ -13,7 +13,6 @@ const YES_NO: Record<string, string> = { Yes: "yes", No: "no" };
 // Namespaced in the DB: The Odds API also stores bookmakers (e.g. pinnacle) and the two must never mix.
 const AF_PREFIX = "af:";
 const BET_IDS = [1, 5, 8, 12];
-const WINDOW_HOURS_UTC = [7, 8, 13, 14];
 
 /** Our rows for one bookmaker; a market is kept only when every one of its picks is priced. */
 export function marketRows(o: AfOdds, bookmaker: string): MarketRow[] {
@@ -71,12 +70,12 @@ const toFd = (f: AfFixture): FdMatch => ({
 });
 
 /**
- * Tomorrow's multi-market odds, in two daily windows. Each call costs one of the free plan's
- * 100 daily requests; `budget` keeps a margin and counts what earlier runs of the day used.
+ * Tomorrow's multi-market odds, at every run: GitHub starts cron jobs hours late, so no time window
+ * is reliable. Each call costs one of the free plan's 100 daily requests; `budget` keeps a margin
+ * and counts what earlier runs of the day used.
  */
 export async function ingestMarkets(db: Db, af: ApiFootball, now: Date, budget = 90): Promise<MarketsOutcome> {
   const out: MarketsOutcome = { fixtures: 0, linked: 0, oddsFetched: 0, snapshots: 0, requests: 0, unmatched: [], errors: [] };
-  if (!WINDOW_HOURS_UTC.includes(now.getUTCHours())) return out;
 
   const [{ used }] = (
     await db.query<{ used: number }>(
