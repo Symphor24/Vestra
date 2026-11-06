@@ -21,7 +21,8 @@ export const viewport: Viewport = {
 };
 
 // Runs before paint: applies the saved theme and hides onboarding for returning visitors.
-const HEAD_SCRIPT = `try{var d=document.documentElement,t=JSON.parse(localStorage.getItem("vestra-theme")||'"system"');if(t==="light"||t==="dark")d.dataset.theme=t;if(localStorage.getItem("vestra-onboarded"))d.dataset.onboarded="1"}catch(e){document.documentElement.dataset.onboarded="1"}`;
+// shortcut: also removes the comment Netlify injects at the top of <head>, whose text node breaks hydration of every page; drop it if Netlify stops injecting.
+const HEAD_SCRIPT = `for(var n=document.head.firstChild,x;n;n=x){x=n.nextSibling;if(n.nodeType===8&&/Netlify/.test(n.data)||n.nodeType===3&&!n.data.trim())n.remove()}try{var d=document.documentElement,t=JSON.parse(localStorage.getItem("vestra-theme")||'"system"');if(t==="light"||t==="dark")d.dataset.theme=t;if(localStorage.getItem("vestra-onboarded"))d.dataset.onboarded="1"}catch(e){document.documentElement.dataset.onboarded="1"}`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   const demo = DATA_SOURCE === "demo";
