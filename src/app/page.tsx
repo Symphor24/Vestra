@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { ArrowUpRight, Layers, SearchX, TriangleAlert } from "lucide-react";
+import { ticketDay } from "@/lib/combos/display";
 import { getDashboard } from "@/lib/data";
 import { ageHours, STALE_AFTER_HOURS } from "@/lib/odds/calc";
 import { PickCard } from "@/components/dashboard/pick-card";
@@ -28,7 +29,9 @@ export default function Home() {
 }
 
 async function Dashboard() {
-  const { now, matches, stats, tickets, picks, source } = await getDashboard();
+  const { now, matches, stats, tickets: allTickets, picks, source } = await getDashboard();
+  const day = ticketDay(allTickets, now);
+  const tickets = allTickets.filter((t) => t.featured && t.matchDay === day);
   const syncAge = stats.lastSync ? ageHours(stats.lastSync, new Date(now)) : null;
   // The pipeline runs ~every 6 h: beyond the stale threshold a run was missed and users must know.
   const syncLate = source === "live" && (syncAge === null || syncAge > STALE_AFTER_HOURS);
@@ -129,7 +132,7 @@ async function Dashboard() {
       </section>
 
       <section aria-labelledby="combos-title">
-        <SectionTitle action={<Link href="/combos" className="text-sm font-medium text-muted hover:text-text">Détails et méthode</Link>}>
+        <SectionTitle action={<Link href="/combos" className="text-sm font-medium text-muted hover:text-text">Tous les combinés</Link>}>
           <span id="combos-title">Combinés proposés</span>
         </SectionTitle>
         {tickets.length ? (

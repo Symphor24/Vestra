@@ -12,6 +12,12 @@ export interface TicketStatus {
   live: (LiveMatch | null)[];
 }
 
+/** The day to put forward: today's tickets if any, else the most recent day (matchDay is YYYY-MM-DD, so the string maximum). */
+export function ticketDay(tickets: Ticket[], now: string): string {
+  const today = now.slice(0, 10);
+  return tickets.some((t) => t.matchDay === today) ? today : tickets.reduce((d, t) => ((t.matchDay ?? "") > d ? t.matchDay! : d), "");
+}
+
 /** Database result first (it is final); otherwise the status the live scores imply right now. */
 export function displayStatus(ticket: Ticket, liveById: Map<string, LiveMatch>): TicketStatus {
   const live = ticket.legs.map((l) => (l.footballDataId ? liveById.get(l.footballDataId) ?? null : null));

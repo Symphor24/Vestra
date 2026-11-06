@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { BookmarkPlus, ChevronDown, Copy, SlidersHorizontal } from "lucide-react";
 import { ticketText } from "@/lib/combos/slip";
 import { fmtOdds, fmtPct, fmtTotal, tierLabel } from "@/lib/formatting";
@@ -35,9 +35,20 @@ function StatusPill({ status, leg = false }: { status: LegResult; leg?: boolean 
 
 const probabilityText = (p: number) => (p < 0.001 ? "< 0,1 %" : fmtPct(p * 100));
 
-/** The ticket is the product's signature object: navy in both themes, total odds set large. */
-export function TicketCard({ ticket, stale, now, defaultOpen = false }: { ticket: Ticket & Partial<TicketStatus>; stale: boolean; now: string; defaultOpen?: boolean }) {
-  const [open, setOpen] = useState(defaultOpen);
+/**
+ * The ticket is the product's signature object: navy in both themes, total odds set large.
+ * `collapsible` starts it as a one-line stub (for long lists), unless `startExpanded`.
+ */
+export function TicketCard({ ticket, stale, now, collapsible = false, startExpanded = false }: { ticket: Ticket & Partial<TicketStatus>; stale: boolean; now: string; collapsible?: boolean; startExpanded?: boolean }) {
+  const [collapsed, setCollapsed] = useState(collapsible && !startExpanded);
+  const [open, setOpen] = useState(false);
+  // Stub and full card swap buttons: keep keyboard focus on the one that replaces the button just used.
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const toggled = useRef(false);
+  useEffect(() => {
+    if (toggled.current) toggleRef.current?.focus({ preventScroll: true });
+    toggled.current = false;
+  }, [collapsed]);
   const [, setSlip] = useSlip();
   const [favs, setFavs] = useFavorites();
   const router = useRouter();
@@ -50,14 +61,44 @@ export function TicketCard({ ticket, stale, now, defaultOpen = false }: { ticket
   const showFreshness = status === "pending" && ticket.legs.every((l) => l.kickoffAt > now);
   const adjustable = ticket.legs.every((l) => l.market === "h2h");
 
+  if (collapsed) {
+    return (
+      <article className="overflow-hidden rounded-card bg-hero text-hero-text">
+        <button
+          ref={toggleRef}
+          type="button"
+          aria-expanded={false}
+          onClick={() => {
+            toggled.current = true;
+            setCollapsed(false);
+            setOpen(true);
+          }}
+          className="flex min-h-16 w-full items-center gap-4 px-5 py-3 text-left hover:bg-white/[0.04]"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-2 font-semibold">
+              Combiné {tierLabel(ticket.tier)} {status === "void" && <StatusPill status={status} />}
+            </span>
+            <span className="mt-0.5 block text-xs text-hero-muted">
+              {ticket.legs.length} sélections{ticket.probability !== null && `, ${probabilityText(ticket.probability)} selon le marché`}
+            </span>
+          </span>
+          <span className="text-2xl leading-none font-semibold tracking-tight tabular-nums">{fmtTotal(ticket.totalOdds)}</span>
+          <ChevronDown className="size-4 shrink-0 text-lime" aria-hidden="true" />
+        </button>
+      </article>
+    );
+  }
+
   return (
     <article className="flex flex-col overflow-hidden rounded-card bg-hero text-hero-text">
       <div className="relative p-5">
         <div className="absolute inset-0 bg-[radial-gradient(80%_100%_at_100%_0%,rgb(200_241_105/0.14),transparent_60%)]" aria-hidden="true" />
         <div className="relative flex items-start justify-between gap-4">
           <div>
-            <h3 className="flex items-center gap-2 font-semibold">
-              Combiné {tierLabel(ticket.tier)} <StatusPill status={status} />
+            <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 font-semibold">
+              <span className="whitespace-nowrap">Combiné {tierLabel(ticket.tier)}</span> <StatusPill status={status} />
+              {startExpanded && <span className="whitespace-nowrap rounded-full bg-accent px-2 py-0.5 text-[11px] font-medium text-accent-ink">À la une</span>}
             </h3>
             {ticket.probability !== null && (
               <p className="mt-1 max-w-[34ch] text-xs text-hero-muted">
@@ -116,10 +157,17 @@ export function TicketCard({ ticket, stale, now, defaultOpen = false }: { ticket
           </p>
         )}
         <button
+          ref={toggleRef}
           type="button"
           aria-expanded={open}
           aria-controls={panelId}
-          onClick={() => setOpen(!open)}
+          onClick={() => {
+            if (open && collapsible) {
+              toggled.current = true;
+              setCollapsed(true);
+            }
+            setOpen(!open);
+          }}
           className="mt-3 inline-flex min-h-11 items-center gap-1 self-start text-sm font-medium text-lime"
         >
           {open ? "Réduire" : "Voir le ticket"}
